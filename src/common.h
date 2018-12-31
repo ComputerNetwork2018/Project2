@@ -224,3 +224,15 @@ string ip_to_string(const uint32_t ip)
 	oss.flush();
 	return oss.str();
 }
+vector<string> split(const string &s,const char splitter)
+{
+	vector<string>ans;
+	string t="";
+	for(int i=0;;i++)
+	{
+		if(i==(int)s.size()||s[i]==splitter)ans.push_back(t),t.clear();
+		else t.push_back(s[i]);
+		if(i==(int)s.size())break;
+	}
+	return ans;
+}
