@@ -1,0 +1,12 @@
+server:
+	usage example: ./server 10000
+	when receive message: recv from 140.112.30.32:34481
+client:
+	usage example: ./client -t 1000 -n 3 localhost:10000 140.112.30.32:10000
+	when success: recv from localhost, RTT = 0 msec
+	when failed: timeout when connect to 140.112.30.32
+
+Both server & client are implemented using multiplexing methods.
+accept, connect, send, receive calls are set with non-blocking specific flags.
+chrono::steady_clock is used to precisely measure time elapsed.
+When client receives echo from the server, or has timed out, it will wait until next timeout before sending the next message. That is, even if the client receives message from the server immediately, it will still wait until the full 1 sec elapsed (if time out is set to 1 sec) and then do the second ping.

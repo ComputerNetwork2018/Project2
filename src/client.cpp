@@ -1,333 +1,181 @@
-#include <iostream>
-#include <iomanip>
-#include <string>
-#include <vector>
-#include <exception>
-#include <chrono>
-
-#include <cstring>
-#include <time.h>
-
-extern "C"
-{
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-}
-
-#include "client.hpp"
-#include "socket.hpp"
-
+#include<bits/stdc++.h>
+#include<time.h>
+#include<chrono>
+#include"common.h"
 using namespace std;
-using namespace std::chrono;
-
-#ifdef DEBUG
-
-// #define DEBUG_PARSEARG
-#define DEBUG_ERROR
-
-#endif
-
-namespace TCP_Ping
+using namespace chrono;
+class PingJob
 {
-	bool Client::ParseArgs( vector< string > args )
+	public:
+	PingJob(const string &_host,const int _port,const int _timeout,const int _id)
+		:host(_host),port(_port),timeout(_timeout),id(_id),start_clock(steady_clock::now()),result("timeout when connect to "+host){}
+	string host;
+	int port,timeout,id;
+	void TryPing(string &info,bool &is_time_out)
 	{
-#ifdef DEBUG_PARSEARG
-		for( auto arg : args )
+		if(!nothing_to_do)_TryPing();
+		is_time_out=(get_current_delay()>timeout);
+		if(!info_given&&(nothing_to_do||is_time_out))info=result,info_given=true;
+		if(!nothing_to_do&&is_time_out&&server_fd!=-1)close(server_fd);
+	}
+	/*bool is_time_out()
+	{
+		const int current_delay=(int)((clock()-start_clock)*1000/CLOCKS_PER_SEC);
+		return current_delay>timeout;
+	}*/
+	int get_current_delay()
+	{
+		return (int)(duration_cast<microseconds>(steady_clock::now()-start_clock).count()/1000);
+	}
+	private:
+	steady_clock::time_point start_clock;
+	int server_fd;
+	bool nothing_to_do=false;
+	bool is_handshaking=false,is_connected=false,is_sent=false,info_given=false;
+	string result;
+	struct sockaddr_in socket_address_info;
+	void _TryPing()
+	{
+		if(!is_handshaking)
 		{
-			clog << "ListArgs: " << arg << endl;
+			int error_number;
+			if(!connect_to(host,port,server_fd,error_number,socket_address_info))
+			{
+				if(server_fd==-1)return;
+				if(error_number!=EINPROGRESS)
+				{
+					//clog<<host<<" connect error"<<endl;
+					close(server_fd);
+					nothing_to_do=true;
+					return;
+				}
+				//else clog<<host<<" hand shaking"<<endl;
+				is_handshaking=true;
+				return;
+			}
+			assert(server_fd!=-1);
+			is_handshaking=is_connected=true;
+			return;
 		}
-#endif
-
-		for( int i = 1; i < args.size( ); ++i )
+		if(!is_connected)
 		{
-			if( args[ i ] == "-n" )
+			index_wow_lets_make_it_fail:;
+			const auto &rfds=select_read({server_fd});
+			const auto &wfds=select_write({server_fd});
+			if(!rfds.empty()||!wfds.empty())
 			{
-				if( i + 1 >= args.size( ) )
+				/*if(!wfds.empty())//connect error
 				{
-					clog << "Missing argument after -n." << endl;
-					return false;
+					fprintf(stderr,"hand-shaking error\n");
+					nothing_to_do=true;
+					return;
 				}
-
-				try
+				else*/
+				int error_number;
+				if(try_connect(server_fd,error_number,socket_address_info))goto index_wow_lets_make_it_fail;
+				if(error_number!=EISCONN)
 				{
-					ping_count_ = stoul( args[ i + 1 ], nullptr, 10 );
-				}
-				catch( invalid_argument e )
-				{
-					clog << "Invalid argument after -n : \"" << args[ i + 1 ] << '\"' << endl;
-					return false;
-				}
-				catch( out_of_range e )
-				{
-					clog << "Ping count " << args[ i + 1 ] << " out of range." << endl;
-					return false;
-				}
-
-				++i;
-			}
-			else if( args[ i ] == "-t" )
-			{
-				if( i + 1 >= args.size( ) )
-				{
-					clog << "Missing argument after -t." << endl;
-					return false;
-				}
-
-				try
-				{
-					timeout_ = stoul( args[ i + 1 ], nullptr, 10 );
-				}
-				catch( invalid_argument e )
-				{
-					clog << "Invalid argument after -t : \"" << args[ i + 1 ] << '\"' << endl;
-					return false;
-				}
-				catch( out_of_range e )
-				{
-					clog << "Timeout " << args[ i + 1 ] << " out of range." << endl;
-					return false;
-				}
-
-				++i;
-			}
-			else
-			{
-				size_t pos = args[ i ].find_first_of( ':' );
-				if( pos == args[ i ].npos )
-				{
-					clog << "Invalid port number : port number DNE." << endl;
-					return false;
-				}
-				else
-				{
-					try
+					//if(error_number==EINPROGRESS)return;
+					/*if(error_number!=EINPROGRESS)//EINPROGRESS: maybe the port is incorrect
 					{
-						unsigned int port = stoul( args[ i ].substr( pos + 1 ), nullptr, 10 );
-
-						if( port >= 65536 )
-						{
-							throw out_of_range( "Port number " + args[ i ].substr( pos + 1 ) + "is too large." );
-						}
-
-						connectionList_.push_back( ClientSocketConnection( args[ i ].substr( 0, pos ), port ) );
-					}
-					catch( invalid_argument e )
-					{
-						clog << "Invalid port number : \"" << args[ i ].substr( pos + 1 ) << '\"' << endl;
-						return false;
-					}
-					catch( out_of_range e )
-					{
-						clog << "Port number " << args[ i ].substr( pos + 1 ) << " out of range." << endl;
-						return false;
-					}
+						clog<<host<<" error_number="<<strerror(error_number)<<endl;
+					}*/
+					close(server_fd);
+					nothing_to_do=true;
+					return;
 				}
+				//clog<<host<<" connected!"<<endl;
+				is_connected=true;
 			}
+			return;
 		}
-
-		if( connectionList_.size( ) == 0 )
+		if(!is_sent)
 		{
-			clog << "Invalid host list: no connection in list." << endl;
-			return false;
-		}
-
-#ifdef DEBUG_PARSEARG
-		clog << "ping_count_ = " << ping_count_ << endl
-			 << "timeout_ = " << timeout_ << endl
-			 << "connectionList_ :" << endl;
-		for( auto i : connectionList_ )
-		{
-			clog << "( " << i.address << " , " << i.port << " , " << i.socketFd << " )" << endl;
-		}
-#endif
-		
-		return true;
-	}
-
-	void Client::Usage( )
-	{
-		clog << "\n\nUsage: ./client [-n N] [-t T] host1:port1 host2:port2 ...\n"
-			 << "\n"
-			 << "    N   : Number of packets sent to each host.\n"
-			 << "          If N = 0, ping until process ends.\n"
-			 << "          Default value: 0.\n"
-			 << "\n"
-			 << "    T   : Waiting timeout in milliseconds.\n"
-			 << "          Default value: 1000.\n"
-			 << endl;
-	}
-
-	Client::Client( ) : connectionList_( 0 ) {}
-
-	bool Client::TryConnect( ClientSocketConnection &connection )
-	{
-#ifdef DEBUG
-		clog << "TryConnect( " << connection << " )" << endl;
-#endif
-		int socketFd;
-		addrinfo hints, *info;
-
-		memset( &hints, 0, sizeof( hints ) );
-		hints.ai_family = AF_UNSPEC;
-		hints.ai_socktype = SOCK_STREAM;
-
-		int result = getaddrinfo( connection.address.c_str( ), to_string( connection.port ).c_str( ), &hints, &info );
-		if( result != 0 )
-		{
-#ifdef DEBUG_ERROR
-			clog << "\e[1;31m[ERROR]\e[m getaddrinfo: " << gai_strerror( result ) << endl;
-#endif
-			return false;
-		}
-
-		for( auto curr = info; curr != nullptr; curr = curr -> ai_next )
-		{
-#ifdef DEBUG
-			clog << "Next." << endl;
-#endif
-			socketFd = socket( curr -> ai_family, curr -> ai_socktype, curr -> ai_protocol );
-#ifdef DEBUG
-			clog << "socketFd = " << socketFd << endl;
-#endif
-			if( socketFd == -1 )
+			bool unexpected_error;
+			if(send_string(server_fd,"OK",unexpected_error))
 			{
-#ifdef DEBUG_ERROR
-				clog << "\e[1;31m[ERROR]\e[m Unable to create socket." << endl;
-#endif
-				continue;
+				//clog<<host<<" sent!"<<endl;
+				is_sent=true;
 			}
-#ifdef DEBUG
-			clog << "Try connect with fd " << socketFd << endl;
-#endif
-			if( connect( socketFd, curr -> ai_addr, curr -> ai_addrlen ) == -1 )
+			if(unexpected_error)
 			{
-#ifdef DEBUG_ERROR
-				clog << "\e[1;31m[ERROR]\e[m Unable to connect" << endl;
-#endif
-				close( socketFd );
-				continue;
+				close(server_fd);
+				nothing_to_do=true;
+				return;
 			}
-
-			connection.socket.Fd( socketFd );
-			freeaddrinfo( info );
-#ifdef DEBUG
-			clog << "Connected: socketFd = " << socketFd << endl;
-#endif
-			return true;
+			return;
 		}
-
-		freeaddrinfo( info );
-		return false;
-	}
-
-	void Client::FailToConnect( ClientSocketConnection &connection )
-	{
-		cout << "timeout when connect to " << connection.address << endl;
-	}
-
-	int Client::Main( vector< string > args )
-	{
-		if( not ParseArgs( args ) )
 		{
-			Usage( );
-			return 0;
-		}
-
-		for( int i = 0; ping_count_ == 0 or i < ping_count_; ++i )
-		{
-			for( auto &connection : connectionList_ )
+			bool unexpected_error;
+			string msg;
+			if(receive_string(server_fd,msg,unexpected_error))
 			{
-				if( not TryConnect( connection ) )
+				if(msg!="OK")clog<<"msg: "<<msg<<endl;
+				const int current_delay=get_current_delay();
+				result="recv from "+host+", RTT = "+to_string(current_delay)+" msec";
+				close(server_fd);
+				nothing_to_do=true;
+				return;
+			}
+			if(unexpected_error)
+			{
+				close(server_fd);
+				nothing_to_do=true;
+				return;
+			}
+			return;
+		}
+		//cerr<<"no response yet."<<endl;
+	}
+};
+void Ping(const int number,const int timeout,const vector<string>&hosts)
+{
+	vector<PingJob>jobs;
+	for(const auto s:hosts)
+	{
+		const int i=(int)s.find(':');
+		assert(i!=-1);
+		jobs.push_back(PingJob(s.substr(0,i),stoi(s.substr(i+1)),timeout,0));
+	}
+	while(!jobs.empty())
+	{
+		for(auto it=jobs.begin();it!=jobs.end();++it)
+		{
+			auto &job=*it;
+			string result="";
+			bool is_time_out;
+			job.TryPing(result,is_time_out);
+			if(result!="")cout<<result<<endl;//<<", id="<<job.id<<endl;
+			if(is_time_out)
+			{
+				const auto newJob=PingJob(job.host,job.port,job.timeout,job.id+1);
+				jobs.erase(it);
+				if(number==0||newJob.id<number)
 				{
-#ifdef DEBUG_ERROR
-					clog << "\e[1;31m[ERROR]\e[m Failed to connect to " << connection.address << " : " << connection.port << " , abort." << endl;
-#endif
-					FailToConnect( connection );
-					continue;
+					jobs.push_back(newJob);
 				}
-				else
-				{
-#ifdef DEBUG
-					clog << "Done connection to " << connection << endl;
-#endif
-					if( connection.socket.Fd( ) != -1 )
-					{
-						steady_clock::time_point startTime = steady_clock::now( );
-
-						if( connection.socket.Send( DEFAULT_MESSAGE ) )
-						{
-#ifdef DEBUG
-							clog << "Message sent to server." << endl;
-#endif
-						}
-						else
-						{
-#ifdef DEBUG_ERROR
-							clog << "\e[1;31m[ERROR]\e[m Message sending failed." << endl;
-#endif
-							FailToConnect( connection );
-							close( connection.socket.Fd( ) );
-							connection.socket.Fd( -1 );
-
-							continue;
-						}
-
-						string message = connection.socket.Recv( );
-						if( message.length( ) == 0 )
-						{
-#ifdef DEBUG_ERROR
-							clog << "\e[1;31m[ERROR]\e[m Message recieving failed." << endl;
-#endif
-							FailToConnect( connection );
-							close( connection.socket.Fd( ) );
-							connection.socket.Fd( -1 );
-
-							continue;
-						}
-						else
-						{
-#ifdef DEBUG
-							clog << "Server message recieved : " << message << endl;
-#endif
-							steady_clock::time_point endTime = steady_clock::now( );
-							duration< int, milli > timeSpan = duration_cast< duration< int, milli > >( endTime - startTime );
-
-							if( timeSpan.count( ) > timeout_ )
-							{
-								FailToConnect( connection );
-							}
-							else
-							{
-								cout << "recv from " << connection.address << ", RTT = " << timeSpan.count( ) << " msec" << endl;
-
-								usleep( ( timeout_ - timeSpan.count( ) ) * 1000 / connectionList_.size( ) );
-							}
-
-							close( connection.socket.Fd( ) );
-							connection.socket.Fd( -1 );
-						}
-					}
-				}
+				break;
 			}
 		}
-#ifdef DEBUG
-		clog << "Done, close sessions." << endl;
-#endif
-		for( auto &connection : connectionList_ )
-		{
-			if( connection.socket.Fd( ) != -1 )
-			{
-				close( connection.socket.Fd( ) );
-				connection.socket.Fd( -1 );
-			}
-		}
-
-		return 0;
 	}
-
-	unsigned int Client::ping_count_ = Client::DEFAULT_PING_COUNT;
-	unsigned int Client::timeout_ = Client::DEFAULT_TIMEOUT;
 }
-
+int main(int argc,char *argv[])
+{
+	int number=0;
+	int timeout=1000;
+	vector<string>hosts;
+	for(int i=1;i<argc;i++)
+	{
+		const string v=argv[i];
+		if(v=="-n")number=stoi(argv[++i]);
+		else if(v=="-t")timeout=stoi(argv[++i]);
+		else hosts.push_back(v);
+	}
+	cerr<<"-n "<<number<<endl;
+	cerr<<"-t "<<timeout<<endl;
+	cerr<<"hosts:";
+	for(const string &h:hosts)cerr<<' '<<h;
+	cerr<<endl;
+	Ping(number,timeout,hosts);
+	return 0;
+}
