@@ -13,8 +13,8 @@ SRC_DIR=src
 # Files
 _SERVER=server
 _CLIENT=client
-_SERVER_OBJ=socket.o server.o server_main.o
-_CLIENT_OBJ=socket.o client.o client_main.o
+_SERVER_OBJ=common.o server.o server_main.o
+_CLIENT_OBJ=common.o client.o client_main.o
 
 # Directed Files
 SERVER=$(patsubst %, $(BIN_DIR)/%, $(_SERVER))
