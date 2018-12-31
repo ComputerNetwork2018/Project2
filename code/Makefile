@@ -1,4 +1,4 @@
-.PHONY:clean
+.PHONY: clean
 
 # Compiler & options
 CC=g++
@@ -13,8 +13,8 @@ SRC_DIR=src
 # Files
 _SERVER=server
 _CLIENT=client
-_SERVER_OBJ=termianl.o terminal_util.o msgQueues.o msg.o common.o server.o server_main.o
-_CLIENT_OBJ=termianl.o terminal_util.o msgQueues.o msg.o common.o client.o client_main.o
+_SERVER_OBJ=terminal.o terminal_util.o msgQueues.o msg.o common.o server.o
+_CLIENT_OBJ=terminal.o terminal_util.o msgQueues.o msg.o common.o client.o
 
 # Directed Files
 SERVER=$(patsubst %, $(BIN_DIR)/%, $(_SERVER))
@@ -29,10 +29,14 @@ default: all
 all: $(SERVER) $(CLIENT)
 
 # Make server
+server: $(SERVER)
+
 $(SERVER): $(SERVER_OBJ)
 	$(CC) $(CFLAGS) -o $@ $^
 
 # Make client
+client: $(CLIENT)
+
 $(CLIENT): $(CLIENT_OBJ)
 	$(CC) $(CFLAGS) -o $@ $^
 

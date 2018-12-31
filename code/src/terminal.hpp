@@ -59,7 +59,7 @@ class Format
 
 class Terminal
 {
-	private:
+	protected:
 		class Position __position;
 		class Format __format;
 		stringstream __output;

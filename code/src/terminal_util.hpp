@@ -8,9 +8,9 @@ using namespace std;
 class Terminal_Util : public Terminal
 {
 	public:
-		Clear( );
-		Fill( const Position &from, const Position &to, const char character = '@', const Format &format = Format( ) );
-		MsgPos( const string &msg, const Position &pos = Position( ), const Foramt &format = Format( ) );
+		void Clear( );
+		void Fill( const class Position &from, const class Position &to, const class Format &format, const char character = '@' );
+		void MsgPos( const string &msg, const class Position &pos, const class Format &format );
 };
 
 #endif

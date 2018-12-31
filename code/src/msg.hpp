@@ -2,10 +2,11 @@
 #define MSG_HPP
 
 #include <string>
+#include <vector>
 
 #include <cstdint>
 
-#define Id uint64_t
+typedef uint64_t Id;
 
 using namespace std;
 
@@ -20,12 +21,12 @@ namespace Client
 	class RemoteMsg : public string
 	{
 	private:
-		class Id id;
+		::Id id;
 	
 	public:
-		RemoteMsg( const string &msg, const Id &id );
+		RemoteMsg( const string &msg, const ::Id &id );
 
-		class Id Id( ) const;
+		::Id Id( ) const;
 		bool tryQueryOlder( const int count, vector< RemoteMsg > &result ) const;
 		bool tryQueryNewer( const int count, vector< RemoteMsg > &result ) const;
 	};

@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include "msg.hpp"
-#include "common.h"
+#include "common.hpp"
 
 using namespace std;
 

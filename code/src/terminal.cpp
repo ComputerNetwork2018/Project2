@@ -1,8 +1,4 @@
-#ifdef MAKE
 #include "terminal.hpp"
-#else
-#include "../include/terminal.hpp"
-#endif
 
 #include <iostream>
 #include <sstream>
