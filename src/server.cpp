@@ -10,7 +10,8 @@ namespace DataBase
 		string text;
 		string prev="",next="";
 		public:
-		Message(const string &from,const string &to,const string &text):from(from),to(to),text(text){}
+		Message(){}
+		Message(const string &_from,const string &_to,const string &_text):from(_from),to(_to),text(_text){}
 		string to_json()const{return "{from:"+from+",to:"+to+",text:"+text+"}";}
 		bool belong_to(const string &name)const{return name==from||name==to;}
 		void SetPrev(const string &message_id){assert(prev=="");prev=message_id;}
@@ -54,8 +55,16 @@ namespace DataBase
 	void UpdateLastMessage(const string &user1,const string &user2,const string &message_id)
 	{
 		const auto it=GetLastMessage(user1,user2);
-		if(it!=last_message.end())ConnectMessage(it->second,message_id);
-		it->second=message_id;
+		if(it!=last_message.end())
+		{
+			ConnectMessage(it->second,message_id);
+			it->second=message_id;
+		}
+		else
+		{
+			const auto &key=make_pair(min(user1,user2),max(user1,user2));
+			last_message[key]=message_id;
+		}
 	}
 	string InsertMessage(const string &from,const string &to,const string &text)
 	{
@@ -342,7 +351,7 @@ int main(int argc,char *argv[])
 				string response="";
 				string to_send=ProcessMessage(msg,response)?"AC":"WA";
 				if(response!="")to_send+=" "+response;
-				if(!send_string(fd,"OK",unexpected_error))cerr<<"send error"<<endl;
+				if(!send_string(fd,to_send,unexpected_error))cerr<<"send error"<<endl;
 //                if(msg!="OK")cerr<<"msg: "<<msg<<endl;
 //                cout<<"recv from "<<client_fds[fd]<<endl;
 //                if(!send_string(fd,"OK",unexpected_error))
