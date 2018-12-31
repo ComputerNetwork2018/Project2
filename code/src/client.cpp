@@ -8,11 +8,19 @@ using namespace std;
 
 namespace Client
 {
+	string serverName;
+	int serverPort;
+
 	Terminal_Util term( );
 	bool login = false;
 
 	vector< Id > onlineList;
 	vector< Id > friendList;
+
+	void Usage( int argc, char **argv )
+	{
+		cout << "Usage: " << argv[ 0 ] << "address:port" << endl;
+	}
 
 	int Main_Logout( )
 	{
@@ -48,6 +56,16 @@ namespace Client
 
 	int main( int argc, char **argv )
 	{
+		if( argc != 2 )
+		{
+			Usage( argc, argv );
+			return 0;
+		}
+		else
+		{
+			serverName = argv[ 1 ];
+		}
+
 		bool exit = false;
 
 		while( not exit )

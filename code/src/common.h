@@ -23,7 +23,7 @@ template<class T>inline bool getmin( T&a, const T&b )
 	return fcntl(fd,F_SETFL,flags|O_NONBLOCK)!=-1;
 }*/
 
-vector<int>select_write( const vector<int>&fds )
+vector<int> select_write( const vector<int> &fds )
 {
 	fd_set wfds;
 	FD_ZERO( &wfds );
@@ -48,7 +48,7 @@ vector<int>select_write( const vector<int>&fds )
 	return ans;
 }
 
-vector<int>select_read( const vector<int>&fds )
+vector<int> select_read( const vector<int> &fds )
 {
 	fd_set rfds;
 	FD_ZERO( &rfds );

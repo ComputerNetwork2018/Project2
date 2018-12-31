@@ -14,8 +14,6 @@ namespace Client
 	class LocalMsg : public string
 	{
 	public:
-		LocalMsg( const string &msg );
-
 		bool TrySend( ) const;
 	};
 
