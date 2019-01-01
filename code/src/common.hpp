@@ -40,4 +40,6 @@ bool connect_to( const string &servername, const int port, int &server_fd, int &
 
 string ip_to_string( const uint32_t ip );
 
+vector<string> split( const string &s, const char splitter );
+
 #endif
