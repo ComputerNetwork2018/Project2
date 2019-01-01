@@ -76,44 +76,23 @@ namespace Client
 	{
 		term.Clear( );
 		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ), Format( ) );
-		term.MsgPos( "Connecting to server...", Position( 3, 5 ), Format( ) );
+		term.MsgPos( "Login: ", Position( 3, 5 ), Format( ) );
+		term.MsgPos( "Account: ", Position( 5, 5 ), Format( ) );
+		cout << term;
+		
+		string account;
+		cin >> account;
+
+		term.MsgPos( "Password: ", Position( 6, 5 ), Format( ) );
 		cout << term;
 
-		int errorNumber;
-		sockaddr_in addr;
-		bool success = connect_to( serverName, serverPort, serverFd, errorNumber, addr );
+		string password;
+		cin >> password;
 
-		if( success )
-		{
-			term.Clear( );
-			term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ), Format( ) );
-			term.MsgPos( "Login: ", Position( 3, 5 ), Format( ) );
-			term.MsgPos( "Account: ", Position( 5, 5 ), Format( ) );
-			cout << term;
-		
-			string account;
-			cin >> account;
-
-			term.MsgPos( "Password: ", Position( 6, 5 ), Format( ) );
-			cout << term;
-
-			string password;
-			cin >> password;
-
-			term.MsgPos( "Logging in...", Position( 8, 5 ), Format( ) );
-			cout << term;
-		}
-		else
-		{
-			term.MsgPos( string( "failed: " ) + strerror( errorNumber ), Position( 4, 5 ), Format( ) );
-			term.MsgPos( "Press ENTER to continue...", Position( 6, 5 ), Format( ) );
-			cout << term;
-			getchar( );
-			getchar( );
-
-			sessionId = "";
-			return false;
-		}
+		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ), Format( ) );
+		term.MsgPos( "Login: ", Position( 3, 5 ), Format( ) );
+		term.MsgPos( "Logging in...", Position( 5, 5 ), Format( ) );
+		cout << term;
 	}
 
 	void Register( ) { }
