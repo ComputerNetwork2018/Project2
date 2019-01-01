@@ -13,7 +13,7 @@ SRC_DIR=src
 # Files
 _SERVER=server
 _CLIENT=client
-_SERVER_OBJ=terminal.o terminal_util.o msgQueues.o msg.o common.o server.o
+_SERVER_OBJ=common.o server.o
 _CLIENT_OBJ=terminal.o terminal_util.o msgQueues.o msg.o common.o client.o
 
 # Directed Files

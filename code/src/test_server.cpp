@@ -1,7 +1,7 @@
 #include<bits/stdc++.h>
 #include<time.h>
 #include<chrono>
-#include"common.h"
+#include"common.hpp"
 using namespace std;
 using namespace chrono;
 class PingJob
