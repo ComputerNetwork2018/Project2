@@ -105,7 +105,7 @@ namespace Client
 		}
 		else
 		{
-			term.MsgPos( "failed", Position( 4, 5 ), Format( ) );
+			term.MsgPos( string( "failed: " ) + strerror( errorNumber ), Position( 4, 5 ), Format( ) );
 			term.MsgPos( "Press ENTER to continue...", Position( 6, 5 ), Format( ) );
 			cout << term;
 			getchar( );
@@ -129,7 +129,7 @@ namespace Client
 		{
 			string server = string( argv[ 1 ] );
 			serverName = server.substr( 0, server.find_first_of( ':' ) );
-			if( not stoiRange( server.substr( server.find_first_of( ':' + 1 ) ), serverPort, 0, 65535 ) )
+			if( not stoiRange( server.substr( server.find_first_of( ':' ) + 1 ), serverPort, 0, 65535 ) )
 			{
 				Usage( argc, argv );
 				return 0;
