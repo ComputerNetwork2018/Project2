@@ -19,7 +19,7 @@ class Position
 		int __col;
 
 	public:
-		Position( int row = 1, int col = 1 );
+		Position( int row = 0, int col = 0 );
 
 		int Row( void ) const;
 		bool Row( int row );

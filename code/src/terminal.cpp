@@ -26,7 +26,12 @@ int Position::Row( void ) const
 
 bool Position::Row( int row )
 {
-	if( row <= 0 )
+	if( row == 0 )
+	{
+		return true;
+	}
+	
+	if( row < 0 )
 	{
 		__row = 1;
 		return false;
@@ -51,7 +56,12 @@ int Position::Col( void ) const
 
 bool Position::Col( int col )
 {
-	if( col <= 0 )
+	if( col == 0 )
+	{
+		return true;
+	}
+
+	if( col < 0 )
 	{
 		__col = 1;
 		return false;

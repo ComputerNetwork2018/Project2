@@ -4,6 +4,7 @@
 
 #include <cstdint>
 
+#include "common.hpp"
 #include "terminal_util.hpp"
 
 typedef uint64_t Id;
@@ -14,6 +15,7 @@ namespace Client
 {
 	string serverName;
 	int serverPort;
+	int serverFd;
 
 	Terminal_Util term = Terminal_Util( );
 	bool login = false;
@@ -29,7 +31,7 @@ namespace Client
 	int Main_Logout( )
 	{
 		term.Clear( );
-		term.MsgPos( "CNline: An Online Messenger", Position( ), Format( ) );
+		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ), Format( ) );
 		term.MsgPos( "1. Login", Position( 3, 5 ), Format( ) );
 		term.MsgPos( "2. Register", Position( 4, 5 ), Format( ) );
 		term.MsgPos( "3. Exit", Position( 5, 5 ), Format( ) );
@@ -59,7 +61,45 @@ namespace Client
 		}
 	}
 
-	void Login( ) { }
+	bool Login( string &sessionId )
+	{
+		term.Clear( );
+		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ), Format( ) );
+		term.MsgPos( "Connecting to server...", Position( 3, 5 ), Format( ) );
+		cout << term;
+
+		int errorNumber;
+		sockaddr_in addr;
+		bool success = connect_to( serverName, serverPort, serverFd, errorNumber, addr );
+
+		if( success )
+		{
+			term.Clear( );
+			term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ), Format( ) );
+			term.MsgPos( "Login: ", Position( 3, 5 ), Format( ) );
+			term.MsgPos( "Account: ", Position( 5, 5 ), Format( ) );
+		
+			string account;
+			cin >> account;
+
+			term.MsgPos( "Password: ", Position( 6, 5 ), Format( ) );
+
+			string password;
+			cin >> password;
+
+			term.MsgPos( "Logging in...", Position( 8, 5 ), Format( ) );
+		}
+		else
+		{
+			term.MsgPos( "failed", Position( ), Format( ) );
+			term.MsgPos( "Error: " + strerror( errorNumber ), Position( 4, 5 ), Format( FORMAT_BOLD, COLOR_RED, COLOR_BLACK ) );
+			term.MsgPos( "Press ENTER to continue...", Position( 6, 5 ), Format( ) );
+			cin >> errorNumber;
+
+			sessionId = "";
+			return false;
+		}
+	}
 
 	void Register( ) { }
 
