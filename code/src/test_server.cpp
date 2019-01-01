@@ -7,8 +7,9 @@ using namespace chrono;
 class PingJob
 {
 	public:
-	PingJob(const string &_host,const int _port,const int _timeout,const int _id)
-		:host(_host),port(_port),timeout(_timeout),id(_id),start_clock(steady_clock::now()),result("timeout when connect to "+host){}
+	PingJob(const string &_command,const string &_host,const int _port,const int _timeout,const int _id)
+		:command(_command),host(_host),port(_port),timeout(_timeout),id(_id),start_clock(steady_clock::now()),result("timeout when connect to "+host){}
+	string command;
 	string host;
 	int port,timeout,id;
 	void TryPing(string &info,bool &is_time_out)
@@ -92,7 +93,7 @@ class PingJob
 		if(!is_sent)
 		{
 			bool unexpected_error;
-			if(send_string(server_fd,"OK",unexpected_error))
+			if(send_string(server_fd,command,unexpected_error))
 			{
 				//clog<<host<<" sent!"<<endl;
 				is_sent=true;
@@ -110,7 +111,7 @@ class PingJob
 			string msg;
 			if(receive_string(server_fd,msg,unexpected_error))
 			{
-				if(msg!="OK")clog<<"msg: "<<msg<<endl;
+				clog<<"msg: "<<msg<<endl;
 				const int current_delay=get_current_delay();
 				result="recv from "+host+", RTT = "+to_string(current_delay)+" msec";
 				close(server_fd);
@@ -130,38 +131,45 @@ class PingJob
 };
 void Ping(const int number,const int timeout,const vector<string>&hosts)
 {
-	vector<PingJob>jobs;
-	for(const auto s:hosts)
+	while(true)
 	{
-		const int i=(int)s.find(':');
-		assert(i!=-1);
-		jobs.push_back(PingJob(s.substr(0,i),stoi(s.substr(i+1)),timeout,0));
-	}
-	while(!jobs.empty())
-	{
-		for(auto it=jobs.begin();it!=jobs.end();++it)
+		cout<<"> ";
+		string command;
+		getline(cin,command);
+		cout<<"command: "<<command<<endl;
+		vector<PingJob>jobs;
+		for(const auto s:hosts)
 		{
-			auto &job=*it;
-			string result="";
-			bool is_time_out;
-			job.TryPing(result,is_time_out);
-			if(result!="")cout<<result<<endl;//<<", id="<<job.id<<endl;
-			if(is_time_out)
+			const int i=(int)s.find(':');
+			assert(i!=-1);
+			jobs.push_back(PingJob(command,s.substr(0,i),stoi(s.substr(i+1)),timeout,0));
+		}
+		while(!jobs.empty())
+		{
+			for(auto it=jobs.begin();it!=jobs.end();++it)
 			{
-				const auto newJob=PingJob(job.host,job.port,job.timeout,job.id+1);
-				jobs.erase(it);
-				if(number==0||newJob.id<number)
+				auto &job=*it;
+				string result="";
+				bool is_time_out;
+				job.TryPing(result,is_time_out);
+				if(result!="")cout<<result<<endl;//<<", id="<<job.id<<endl;
+				if(is_time_out)
 				{
-					jobs.push_back(newJob);
+					const auto newJob=PingJob(job.command,job.host,job.port,job.timeout,job.id+1);
+					jobs.erase(it);
+					if(number==0||newJob.id<number)
+					{
+						jobs.push_back(newJob);
+					}
+					break;
 				}
-				break;
 			}
 		}
 	}
 }
 int main(int argc,char *argv[])
 {
-	int number=0;
+	int number=1;
 	int timeout=1000;
 	vector<string>hosts;
 	for(int i=1;i<argc;i++)
