@@ -28,6 +28,25 @@ namespace Client
 		cout << "Usage: " << argv[ 0 ] << " address:port" << endl;
 	}
 
+	bool stoiRange( const string &msg, int &result, const int min, const int max )
+	{
+		try
+		{
+			result = stoi( msg );
+		}
+		catch( exception &e )
+		{
+			return false;
+		}
+
+		if( result < min or result > max )
+		{
+			return false;
+		}
+
+		return true;
+	}
+
 	int Main_Logout( )
 	{
 		term.Clear( );
@@ -41,17 +60,9 @@ namespace Client
 		string userChoice;
 		cin >> userChoice;
 
-		int choiceInt = -1;
-		try
-		{
-			choiceInt = stoi( userChoice );
-		}
-		catch( exception &e )
-		{
-			choiceInt = -1;
-		}
-
-		if( 1 <= choiceInt and choiceInt <= 3 )
+		int choiceInt;
+		
+		if( stoiRange( userChoice, choiceInt, 1, 3 ) )
 		{
 			return choiceInt;
 		}
@@ -116,7 +127,13 @@ namespace Client
 		}
 		else
 		{
-			serverName = argv[ 1 ];
+			string server = string( argv[ 1 ] );
+			serverName = server.substr( 0, server.find_first_of( ':' ) );
+			if( not stoiRange( server.substr( server.find_first_of( ':' + 1 ) ), serverPort, 0, 65535 ) )
+			{
+				Usage( argc, argv );
+				return 0;
+			}
 		}
 
 		bool exit = false;
