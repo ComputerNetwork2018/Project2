@@ -78,23 +78,27 @@ namespace Client
 			term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ), Format( ) );
 			term.MsgPos( "Login: ", Position( 3, 5 ), Format( ) );
 			term.MsgPos( "Account: ", Position( 5, 5 ), Format( ) );
+			cout << term;
 		
 			string account;
 			cin >> account;
 
 			term.MsgPos( "Password: ", Position( 6, 5 ), Format( ) );
+			cout << term;
 
 			string password;
 			cin >> password;
 
 			term.MsgPos( "Logging in...", Position( 8, 5 ), Format( ) );
+			cout << term;
 		}
 		else
 		{
-			term.MsgPos( "failed", Position( ), Format( ) );
-			term.MsgPos( "Error: " + strerror( errorNumber ), Position( 4, 5 ), Format( FORMAT_BOLD, COLOR_RED, COLOR_BLACK ) );
+			term.MsgPos( "failed", Position( 4, 5 ), Format( ) );
 			term.MsgPos( "Press ENTER to continue...", Position( 6, 5 ), Format( ) );
-			cin >> errorNumber;
+			cout << term;
+			getchar( );
+			getchar( );
 
 			sessionId = "";
 			return false;
@@ -128,8 +132,11 @@ namespace Client
 			switch( userChoice )
 			{
 				case 1:
-					Login( );
-					break;
+					{
+						string sessionId;
+						bool success = Login( sessionId );
+						break;
+					}
 				case 2:
 					Register( );
 					break;
