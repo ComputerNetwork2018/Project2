@@ -2,16 +2,19 @@
 #include <vector>
 #include <string>
 #include <thread>
+#include <queue>
 #include <mutex>
 
 #include <cstdint>
+
+#include <unistd.h>
 
 #include "common.hpp"
 #include "tcpJob.hpp"
 #include "msgQueues.hpp"
 #include "terminal_util.hpp"
 
-typedef uint64_t Id;
+#define JOB(C) (TCPJob(C,serverName,serverPort))
 
 using namespace std;
 
@@ -22,20 +25,20 @@ namespace Client
 	int serverFd;
 
 	Terminal_Util term = Terminal_Util( );
-	bool login = false;
-
-	vector< ::Id > onlineList;
-	vector< ::Id > friendList;
 
 	// thread & inter-thread communication
 	void tcpSender( );
 	bool ready = false;
-	
+
 	mutex sendMutex;
-	MsgSendQueue msgSendQueue;
+	queue<TCPJob> sendQueue;
 
 	mutex resultMutex;
-	MsgCache msgCache;
+	queue<string> resultQueue;
+
+	// login variables
+	bool login = false;
+	string sessionToken;
 
 	void Usage( int argc, char **argv )
 	{
@@ -86,7 +89,7 @@ namespace Client
 		}
 	}
 
-	bool Login( string &sessionId )
+	bool Login( string &sessionToken )
 	{
 		term.Clear( );
 		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ), Format( ) );
@@ -109,6 +112,39 @@ namespace Client
 		cout << term;
 
 		string command = "login " + account + " " + password;
+
+		{
+			lock_guard<mutex> sendLock( sendMutex );
+			sendQueue.push( JOB( command ) );
+		}
+
+		sleep( 1 );
+		
+		bool loginPending = true;
+		bool loginSuccess = false;
+
+		while( loginPending )
+		{
+			lock_guard<mutex> resultLock( resultMutex );
+
+			if( not resultQueue.empty( ) )
+			{
+				string &result = resultQueue.front( );
+				if( result.substr( 2 ) == "WA" )
+				{
+					loginSuccess = false;
+				}
+				else if( result.substr( 2 ) == "AC" )
+				{
+					loginSuccess = true;
+					sessionToken = result.substr( 3, 16 );
+				}
+
+				loginPending = false;
+			}
+		}
+
+		return loginSuccess;
 	}
 
 	void Register( ) { }
@@ -147,8 +183,7 @@ namespace Client
 			{
 				case 1:
 					{
-						string sessionId;
-						bool success = Login( sessionId );
+						bool success = Login( sessionToken );
 						break;
 					}
 				case 2:

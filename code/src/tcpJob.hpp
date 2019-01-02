@@ -28,7 +28,7 @@ namespace Client
 		void _TryTCP( );
 
 	public:
-		TCPJob( const string &_command, const string &_host, const int _port, const int _timeout, const int _id );
+		TCPJob( const string &_command, const string &_host, const int _port, const int _timeout = 0, const int _id = 0 );
 
 		string command;
 		string host;

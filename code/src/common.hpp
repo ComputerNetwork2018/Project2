@@ -1,12 +1,14 @@
 #ifndef COMMON_HPP
 #define COMMON_HPP
 
-#include<bits/stdc++.h>
-#include<sys/socket.h>
-#include<netinet/in.h>
-#include<unistd.h>
-#include<netdb.h>
-#include<fcntl.h>
+#include <bits/stdc++.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <netdb.h>
+#include <fcntl.h>
+
+#include "codec.hpp"
 
 using namespace std;
 
