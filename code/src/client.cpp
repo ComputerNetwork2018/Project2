@@ -1,11 +1,14 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <thread>
+#include <mutex>
 
 #include <cstdint>
 
 #include "common.hpp"
 #include "tcpJob.hpp"
+#include "msgQueues.hpp"
 #include "terminal_util.hpp"
 
 typedef uint64_t Id;
@@ -23,6 +26,16 @@ namespace Client
 
 	vector< ::Id > onlineList;
 	vector< ::Id > friendList;
+
+	// thread & inter-thread communication
+	void tcpSender( );
+	bool ready = false;
+	
+	mutex sendMutex;
+	MsgSendQueue msgSendQueue;
+
+	mutex resultMutex;
+	MsgCache msgCache;
 
 	void Usage( int argc, char **argv )
 	{
@@ -94,6 +107,8 @@ namespace Client
 		term.MsgPos( "Login: ", Position( 3, 5 ), Format( ) );
 		term.MsgPos( "Logging in...", Position( 5, 5 ), Format( ) );
 		cout << term;
+
+		string command = "login " + account + " " + password;
 	}
 
 	void Register( ) { }
@@ -118,6 +133,8 @@ namespace Client
 
 		bool exit = false;
 
+		thread tcpThread( tcpSender );
+
 		while( not exit )
 		{
 			int userChoice = Main_Logout( ); // 1 = login, 2 = reg, 3 = exit
@@ -140,6 +157,40 @@ namespace Client
 				case 3:
 					exit = true;
 					break;
+			}
+		}
+
+		tcpThread.join( );
+	}
+
+	void tcpSender( )
+	{
+		while( not exit )
+		{
+			if( ( not mainQueue.empty( ) ) and sendQueue.empty( ) and ( not ready ) )
+			{
+				ready = true;
+			}
+			else if( not ( ( sendQueue.empty( ) or ready ) and ( sendQueue.empty( ) or mainQueue.empty( ) ) ) )
+			{
+				auto job = sendQueue.front( );
+				
+				string result = "";
+				bool isTimeout;
+
+				job.TryTCP( result, isTimeout );
+
+				if( result != "" )
+				{
+
+				}
+
+				if( isTimeout )
+				{
+					const auto newJob = TCPJob( job.command, job.host, job.timeout, job.id + 1 );
+					sendQueue.pop( );
+					sendQueue.push( newJob );
+				}
 			}
 		}
 	}
