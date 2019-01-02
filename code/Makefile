@@ -11,14 +11,18 @@ OBJ_DIR=obj
 SRC_DIR=src
 
 # Files
+_TEST=test_server
 _SERVER=server
 _CLIENT=client
+_TEST_OBJ=common.o test_server.o
 _SERVER_OBJ=common.o server.o
-_CLIENT_OBJ=terminal.o terminal_util.o msgQueues.o msg.o common.o client.o
+_CLIENT_OBJ=terminal.o terminal_util.o msgQueues.o msg.o common.o tcpJob.o client.o
 
 # Directed Files
+TEST=$(patsubst %, $(BIN_DIR)/%, $(_TEST))
 SERVER=$(patsubst %, $(BIN_DIR)/%, $(_SERVER))
 CLIENT=$(patsubst %, $(BIN_DIR)/%, $(_CLIENT))
+TEST_OBJ=$(patsubst %, $(OBJ_DIR)/%, $(_TEST_OBJ))
 SERVER_OBJ=$(patsubst %, $(OBJ_DIR)/%, $(_SERVER_OBJ))
 CLIENT_OBJ=$(patsubst %, $(OBJ_DIR)/%, $(_CLIENT_OBJ))
 
@@ -26,7 +30,13 @@ CLIENT_OBJ=$(patsubst %, $(OBJ_DIR)/%, $(_CLIENT_OBJ))
 default: all
 
 # Make all
-all: $(SERVER) $(CLIENT)
+all: $(TEST) $(SERVER) $(CLIENT)
+
+# Make test
+test: $(TEST)
+
+$(TEST): $(TEST_OBJ)
+	$(CC) $(CFLAGS) -o $@ $^
 
 # Make server
 server: $(SERVER)
