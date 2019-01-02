@@ -5,6 +5,7 @@
 #include <cstdint>
 
 #include "common.hpp"
+#include "tcpJob.hpp"
 #include "terminal_util.hpp"
 
 typedef uint64_t Id;

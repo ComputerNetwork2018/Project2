@@ -4,10 +4,10 @@
 #include"common.hpp"
 using namespace std;
 using namespace chrono;
-class PingJob
+class TCPJob
 {
 public:
-	PingJob( const string &_command, const string &_host, const int _port, const int _timeout, const int _id )
+	TCPJob( const string &_command, const string &_host, const int _port, const int _timeout, const int _id )
 		:command( _command ), host( _host ), port( _port ), timeout( _timeout ), id( _id ), start_clock( steady_clock::now( ) ), result( "timeout when connect to " + host )
 	{
 	}
@@ -139,12 +139,12 @@ void Ping( const int number, const int timeout, const vector<string>&hosts )
 		string command;
 		getline( cin, command );
 		cout << "command: " << command << endl;
-		vector<PingJob>jobs;
+		vector<TCPJob>jobs;
 		for( const auto s : hosts )
 		{
 			const int i = (int) s.find( ':' );
 			assert( i != -1 );
-			jobs.push_back( PingJob( command, s.substr( 0, i ), stoi( s.substr( i + 1 ) ), timeout, 0 ) );
+			jobs.push_back( TCPJob( command, s.substr( 0, i ), stoi( s.substr( i + 1 ) ), timeout, 0 ) );
 		}
 		while( !jobs.empty( ) )
 		{
@@ -157,7 +157,7 @@ void Ping( const int number, const int timeout, const vector<string>&hosts )
 				if( result != "" )cout << result << endl;//<<", id="<<job.id<<endl;
 				if( is_time_out )
 				{
-					const auto newJob = PingJob( job.command, job.host, job.port, job.timeout, job.id + 1 );
+					const auto newJob = TCPJob( job.command, job.host, job.port, job.timeout, job.id + 1 );
 					jobs.erase( it );
 					if( number == 0 || newJob.id < number )
 					{
