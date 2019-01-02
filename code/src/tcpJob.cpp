@@ -117,7 +117,7 @@ namespace Client
 			_TryTCP( );
 		}
 
-		isTimeout = ( currentDelay( ) > timeout );
+		isTimeout = ( timeout != 0 and ( currentDelay( ) > timeout ) );
 
 		if( not infoGiven and ( nothingToDo or isTimeout ) )
 		{

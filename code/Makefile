@@ -2,7 +2,7 @@
 
 # Compiler & options
 CC=g++
-CFLAGS=-std=c++11 -O2
+CFLAGS=-std=c++11 -O2 -pthread
 CFLAGS+=$(DFLAGS)
 
 # File directory
@@ -16,7 +16,7 @@ _SERVER=server
 _CLIENT=client
 _TEST_OBJ=common.o test_server.o
 _SERVER_OBJ=common.o server.o
-_CLIENT_OBJ=terminal.o terminal_util.o msgQueues.o msg.o codec.o common.o tcpJob.o client.o
+_CLIENT_OBJ=terminal.o terminal_util.o codec.o common.o tcpJob.o client.o
 
 # Directed Files
 TEST=$(patsubst %, $(BIN_DIR)/%, $(_TEST))

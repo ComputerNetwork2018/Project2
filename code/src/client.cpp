@@ -11,7 +11,6 @@
 
 #include "common.hpp"
 #include "tcpJob.hpp"
-#include "msgQueues.hpp"
 #include "terminal_util.hpp"
 
 #define JOB(C) (TCPJob(C,serverName,serverPort))
@@ -106,6 +105,7 @@ namespace Client
 		string password;
 		cin >> password;
 
+		term.Clear( );
 		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ), Format( ) );
 		term.MsgPos( "Login: ", Position( 3, 5 ), Format( ) );
 		term.MsgPos( "Logging in...", Position( 5, 5 ), Format( ) );
@@ -113,35 +113,51 @@ namespace Client
 
 		string command = "login " + account + " " + password;
 
-		{
-			lock_guard<mutex> sendLock( sendMutex );
-			sendQueue.push( JOB( command ) );
-		}
-
-		sleep( 1 );
+		unique_lock<mutex> sendLock( sendMutex );
+		sendQueue.push( JOB( command ) );
+		sendLock.unlock( );
+		usleep( 50000 );
 		
 		bool loginPending = true;
 		bool loginSuccess = false;
 
 		while( loginPending )
 		{
-			lock_guard<mutex> resultLock( resultMutex );
+			term.MsgPos( "(loginPending)", Position( 6, 5 ), Format( ) );
+			cout << term;
+
+			unique_lock<mutex> resultLock( resultMutex );
 
 			if( not resultQueue.empty( ) )
 			{
 				string &result = resultQueue.front( );
+				
 				if( result.substr( 2 ) == "WA" )
 				{
 					loginSuccess = false;
+					term.MsgPos( " failed", Position( 5, 19 ), Format( ) );
+					cout << term;
 				}
 				else if( result.substr( 2 ) == "AC" )
 				{
 					loginSuccess = true;
 					sessionToken = result.substr( 3, 16 );
+					term.MsgPos( " success!", Position( 5, 19 ), Format( ) );
+					cout << term;
+				}
+				else
+				{
+					term.MsgPos( "WTF?", Position( ), Format( FORMAT_BOLD, COLOR_RED, COLOR_BLACK ) );
 				}
 
 				loginPending = false;
 			}
+
+			resultLock.unlock( );
+
+			int ret = usleep( 50000 );
+			term.MsgPos( "usleep ret = " + to_string( ret ), Position( 7, 5 ), Format( ) );
+			cout << term;
 		}
 
 		return loginSuccess;
@@ -202,30 +218,36 @@ namespace Client
 	{
 		while( not exit )
 		{
-			if( ( not mainQueue.empty( ) ) and sendQueue.empty( ) and ( not ready ) )
-			{
-				ready = true;
-			}
-			else if( not ( ( sendQueue.empty( ) or ready ) and ( sendQueue.empty( ) or mainQueue.empty( ) ) ) )
+			string result = "";
+			
+			unique_lock<mutex> sendLock( sendMutex );
+
+			term.MsgPos( "sender: mutex get", Position( 20, 5 ), Format( ) );
+			cout << term;
+			
+			if( not sendQueue.empty( ) )
 			{
 				auto job = sendQueue.front( );
-				
-				string result = "";
 				bool isTimeout;
 
 				job.TryTCP( result, isTimeout );
 
-				if( result != "" )
-				{
-
-				}
-
 				if( isTimeout )
 				{
-					const auto newJob = TCPJob( job.command, job.host, job.timeout, job.id + 1 );
+					const auto newJob = TCPJob( job.command, job.host, job.port, job.timeout, job.id + 1 );
 					sendQueue.pop( );
 					sendQueue.push( newJob );
 				}
+			}
+
+			sendLock.unlock( );
+			usleep( 65537 );
+
+			if( result != "" )
+			{
+				unique_lock<mutex> resultLock( resultMutex );
+
+				resultQueue.push( result );
 			}
 		}
 	}
