@@ -1,4 +1,6 @@
 #include<bits/stdc++.h>
+#include<thread>
+#include<mutex>
 #include"common.h"
 using namespace std;
 namespace DataBase
@@ -222,6 +224,13 @@ namespace DataBase
 		if(n<1||n>100)return response="supported range of desired_count is 1~100, got "+to_string(n),false;
 		return TryGetPreviousMessages(username,message_id,n,response);
 	}
+	bool TryFileRequest(const string &session_token,const string &receiver_name,const string &file_size,string &response)
+	{
+		string username;
+		if(!TryGetUsername(session_token,username))return response="invalid session_token",false;
+		if(receiver_name==file_size)throw;
+		throw;
+	}
 }
 bool ProcessMessage(const string &msg,string &response)
 {
@@ -293,6 +302,12 @@ bool ProcessMessage(const string &msg,string &response)
 		if(args.size()!=4)return response="prev_messages expect 4 params, got "+to_string(args.size()),false;
 		return DataBase::TryGetPreviousMessages(args[1],args[2],args[3],response);
 	}else
+	// “file_request <session_id> <receiver username> <file_size>”
+	if(title=="file_request")
+	{
+		if(args.size()!=4)return response="file_request expect 4 params, got "+to_string(args.size()),false;
+		return DataBase::TryFileRequest(args[1],args[2],args[3],response);
+	}else
 	{
 		return response="unrecognized command: "+title,false;
 	}
@@ -320,6 +335,7 @@ int main(int argc,char *argv[])
 	}
 	cerr<<"Server fd = "<<server_fd<<". Listening..."<<endl;
 	map<int,string>client_fds;
+	mutex mutex_client_fds;
 	while(true)
 	{
 		usleep(1);
@@ -335,39 +351,38 @@ int main(int argc,char *argv[])
 				oss<<ip_to_string(client_ip)<<':'<<client_port;
 				oss.flush();
 				//cerr<<"accept client: "<<s<<'('<<ip_to_string(client_ip)<<endl;
+				lock_guard<mutex>guard(mutex_client_fds);
 				client_fds[client_fd]=oss.str();
 			}
 		}
 		//cerr<<" ac"<<endl;
-		const auto &readable_client_fds=SelectRead(client_fds);
-		vector<int>to_remove;
+		const auto &readable_client_fds=[&](){lock_guard<mutex>guard(mutex_client_fds); return SelectRead(client_fds);}();
 		for(const int fd:readable_client_fds)
 		{
-			string msg;
+			string _msg;
 			bool unexpected_error;
-			if(receive_string(fd,msg,unexpected_error))
+			if(receive_string(fd,_msg,unexpected_error))
 			{
-                cout<<"recv from "<<client_fds[fd]<<endl;
-				string response="";
-				string to_send=ProcessMessage(msg,response)?"AC":"WA";
-				if(response!="")to_send+=" "+response;
-				if(!send_string(fd,to_send,unexpected_error))cerr<<"send error"<<endl;
-//                if(msg!="OK")cerr<<"msg: "<<msg<<endl;
-//                cout<<"recv from "<<client_fds[fd]<<endl;
-//                if(!send_string(fd,"OK",unexpected_error))
-//                {
-//                    cerr<<"send error"<<endl;
-//                }
-				close(fd);
-				to_remove.push_back(fd);
-			}
-			if(unexpected_error)
-			{
-				close(fd);
-				to_remove.push_back(fd);
+				{
+					lock_guard<mutex>guard(mutex_client_fds);
+                	cout<<"recv from "<<client_fds[fd]<<endl;
+				}
+				// call thread constructor to execute in background
+				// call thread.detach() to allow safe destruction while still executing in background
+				thread([&](const string msg)
+				{
+					string response="";
+					string to_send=ProcessMessage(msg,response)?"AC":"WA";
+					if(response!="")to_send+=" "+response;
+					if(!send_string(fd,to_send,unexpected_error))cerr<<"send error"<<endl;
+					close(fd);
+					{
+						lock_guard<mutex>lock(mutex_client_fds);
+						client_fds.erase(fd);
+					}
+				},_msg).detach();
 			}
 		}
-		for(const int fd:to_remove)client_fds.erase(fd);
 	}
 	return 0;
 }
