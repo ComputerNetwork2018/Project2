@@ -45,7 +45,7 @@ namespace Client
 	bool login = false;
 	string sessionToken;
 
-	void Usage( int argc, char **argv )
+	void Usage( char **argv )
 	{
 		clog << "Usage: " << argv[ 0 ] << " address:port" << endl;
 	}
@@ -74,7 +74,7 @@ namespace Client
 		term.MsgPos( msg, pos, format );
 		cout << term;
 
-		char temp = getchar( );
+		int temp = getchar( );
 
 		do
 		{
@@ -111,12 +111,12 @@ namespace Client
 	{
 		term.Clear( );
 		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
-		term.MsgPos( "Login: ", Position( 3, 5 ) );
-		term.MsgPos( "Account: ", Position( 5, 5 ) );
+		term.MsgPos( "< Login >", Position( 3, 5 ) );
+		term.MsgPos( "Username: ", Position( 5, 5 ) );
 		cout << term;
 		
-		string account;
-		cin >> account;
+		string username;
+		cin >> username;
 
 		term.MsgPos( "Password: ", Position( 6, 5 ) );
 		cout << term;
@@ -126,20 +126,20 @@ namespace Client
 
 		term.Clear( );
 		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
-		term.MsgPos( "Login: ", Position( 3, 5 ) );
+		term.MsgPos( "< Login >", Position( 3, 5 ) );
 		term.MsgPos( "Logging in...", Position( 5, 5 ) );
 		cout << term;
 
-		string command = "login " + account + " " + password;
+		string command = "login " + username + " " + password;
 
 		unique_lock<mutex> sendLock( sendMutex );
-		auto job = TCPJob( command, serverName, serverPort );
+		TCPJob job = TCPJob( command, serverName, serverPort );
 		sendList.push_back( job );
 		sendLock.unlock( );
 		
 		term.Clear( );
 		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
-		term.MsgPos( "Login: ", Position( 3, 5 ) );
+		term.MsgPos( "< Login >", Position( 3, 5 ) );
 		term.MsgPos( "Logging in...", Position( 5, 5 ) );
 		cout << term;
 
@@ -166,7 +166,7 @@ namespace Client
 					loginSuccess = false;
 					term.MsgPos( " failed : " + result.substr( 2 ), Position( 5, 18 ) );
 				}
-				else if( result.substr( 2 ) == "AC" )
+				else if( result.substr( 0, 2 ) == "AC" )
 				{
 					loginSuccess = true;
 					sessionTokenTobe = result.substr( 3, 16 );
@@ -178,23 +178,96 @@ namespace Client
 					term.MsgPos( " failed : unknown error [ " +  result +  " ]" + result.substr( 2 ), Position( 5, 18 ) );
 				}
 
-
 				cout << term;
-				WaitEnter( Position( 7, 5 ) );
+
 				loginPending = false;
+				resultQueue.pop( );
+
+				WaitEnter( Position( 7, 5 ) );
 			}
 
 			resultLock.unlock( );
-
 			usleep( 50000 );
 		}
 
 		return loginSuccess;
 	}
 
-	bool Register( )
+	void Register( )
 	{
+		term.Clear( );
+		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
+		term.MsgPos( "< Register >", Position( 3, 5 ) );
+		term.MsgPos( "Username: ", Position( 5, 5 ) );
+		cout << term;
 
+		string username;
+		cin >> username;
+
+		term.MsgPos( "Password: ", Position( 6, 5 ) );
+		cout << term;
+
+		string password;
+		cin >> password;
+
+		term.Clear( );
+		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
+		term.MsgPos( "< Register >", Position( 3, 5 ) );
+		term.MsgPos( "Registering...", Position( 5, 5 ) );
+		cout << term;
+
+		string command = "signup " + username + " " + password;
+
+		unique_lock<mutex> sendLock( sendMutex );
+		TCPJob job = TCPJob( command, serverName, serverPort );
+		sendList.push_back( job );
+		sendLock.unlock( );
+
+		term.Clear( );
+		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
+		term.MsgPos( "< Register >", Position( 3, 5 ) );
+		term.MsgPos( "Registering...", Position( 5, 5 ) );
+		cout << term;
+
+		usleep( 50000 );
+
+		bool registerPending = true;
+		while( registerPending )
+		{
+			unique_lock< mutex > resultLock( resultMutex );
+
+			if( not resultQueue.empty( ) )
+			{
+				string &result = resultQueue.front( );
+
+				if( result == "timeout" )
+				{
+					term.MsgPos( " failed : connection timeout", Position( 5, 18 ) );
+				}
+				else if( result.substr( 0, 2 ) == "WA" )
+				{
+					term.MsgPos( " failed : " + result.substr( 2 ), Position( 5, 18 ) );
+				}
+				else if( result.substr( 0, 2 ) == "AC" )
+				{
+					term.MsgPos( " success!", Position( 5, 18 ) );
+				}
+				else
+				{
+					term.MsgPos( " failed : unknown error [ " + result + " ]" + result.substr( 2 ), Position( 5, 18 ) );
+				}
+
+				cout << term;
+
+				registerPending = false;
+				resultQueue.pop( );
+
+				WaitEnter( Position( 7, 5 ) );
+			}
+
+			resultLock.unlock( );
+			usleep( 50000 );
+		}
 	}
 
 	void Main_Login( )
@@ -209,7 +282,7 @@ namespace Client
 
 		if( argc != 2 )
 		{
-			Usage( argc, argv );
+			Usage( argv );
 			return 0;
 		}
 		else
@@ -218,7 +291,7 @@ namespace Client
 			serverName = server.substr( 0, server.find_first_of( ':' ) );
 			if( not stoiRange( server.substr( server.find_first_of( ':' ) + 1 ), serverPort, 0, 65535 ) )
 			{
-				Usage( argc, argv );
+				Usage( argv );
 				return 0;
 			}
 		}
@@ -251,10 +324,7 @@ namespace Client
 				}
 				case 2:
 				{
-					if( Register( ) )
-					{
-
-					}
+					Register( );
 					break;
 				}
 				case 3:

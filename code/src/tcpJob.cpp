@@ -108,7 +108,7 @@ namespace Client
 	}
 
 	TCPJob::TCPJob( const string &_command, const string &_host, const int _port, const int _timeout, const int _id )
-		:command( _command ), host( _host ), port( _port ), timeout( _timeout ), id( _id ), startClock( steady_clock::now( ) ), result( "timeout" )
+		:startClock( steady_clock::now( ) ), result( "timeout" ), command( _command ), host( _host ), port( _port ), timeout( _timeout ), id( _id )
 	{
 	}
 
