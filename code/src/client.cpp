@@ -69,6 +69,28 @@ namespace Client
 		return true;
 	}
 
+	bool stoiList( const string &msg, int &result, const vector< int > &range )
+	{
+		try
+		{
+			result = stoi( msg );
+		}
+		catch( exception &e )
+		{
+			return false;
+		}
+
+		for( auto i : range )
+		{
+			if( result == i )
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	void WaitEnter( const Position &pos = Position( ), const Format &format = Format( ), const string &msg = "press ENTER to contunue." )
 	{
 		term.MsgPos( msg, pos, format );
@@ -82,22 +104,23 @@ namespace Client
 		} while( temp != '\n' );
 	}
 
-	int Main_Logout( )
+	int Menu_Logout( )
 	{
 		term.Clear( );
 		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
-		term.MsgPos( "1. Login", Position( 3, 5 ) );
-		term.MsgPos( "2. Register", Position( 4, 5 ) );
-		term.MsgPos( "3. Exit", Position( 5, 5 ) );
-		term.MsgPos( "Put your choice here: ", Position( 7, 1 ) );
-		clog << term;
+		term.MsgPos( "< Main Menu >", Position( 3, 5 ) );
+		term.MsgPos( "1. Login", Position( 4, 5 ) );
+		term.MsgPos( "2. Register", Position( 5, 5 ) );
+		term.MsgPos( "9. Exit", Position( 12, 5 ) );
+		term.MsgPos( "<Num> <ENTER> to choose an option: ", Position( 14, 1 ) );
+		cout << term;
 
 		string userChoice;
 		cin >> userChoice;
 
 		int choiceInt;
 		
-		if( stoiRange( userChoice, choiceInt, 1, 3 ) )
+		if( stoiList( userChoice, choiceInt, { 1, 2, 9 } ) )
 		{
 			return choiceInt;
 		}
@@ -270,9 +293,68 @@ namespace Client
 		}
 	}
 
-	void Main_Login( )
+	int Menu_Login( )
 	{
+		term.Clear( );
+		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
+		term.MsgPos( "< Main Menu >", Position( 3, 5 ) );
+		term.MsgPos( "1. Friend List", Position( 4, 5 ) );
+		term.MsgPos( "2. Online User List", Position( 5, 5 ) );
+		term.MsgPos( "9. Logout", Position( 12, 5 ) );
+		term.MsgPos( "<Num> <Enter> to choose an option: ", Position( 14, 1 ) );
+		cout << term;
 
+		string userChoice;
+		cin >> userChoice;
+
+		int choiceInt;
+
+		if( stoiList( userChoice, choiceInt, { 1, 2, 9 } ) )
+		{
+			return choiceInt;
+		}
+		else
+		{
+			return -1;
+		}
+	}
+
+	void main_login( )
+	{
+		term.Clear( );
+		cout << term;
+
+		while( login )
+		{
+			int userChoice = Menu_Login( ); // 1 = friend list, 2 = online list, 9 = logout
+
+			switch( userChoice )
+			{
+				case 1:
+				{
+					// FriendList( );
+					break;
+				}
+				case 2:
+				{
+					// OnlineList( );
+					break;
+				}
+				case 9:
+				{
+					login = false;
+					break;
+				}
+				default:
+				{
+					term.MsgPos( "Unknown Option.", Position( 14, 36 ), Format( FORMAT_BOLD ) );
+					cout << term;
+
+					WaitEnter( Position( 15, 1 ) );
+					break;
+				}
+			}
+		}
 	}
 
 	int main( int argc, char **argv )
@@ -302,11 +384,7 @@ namespace Client
 
 		while( not exit )
 		{
-			int userChoice = Main_Logout( ); // 1 = login, 2 = reg, 3 = exit
-			while( userChoice == -1 )
-			{
-				userChoice = Main_Logout( );
-			}
+			int userChoice = Menu_Logout( ); // 1 = login, 2 = reg, 9 = exit
 
 			switch( userChoice )
 			{
@@ -317,7 +395,7 @@ namespace Client
 					if( loginSuccess )
 					{
 						login = true;
-						Main_Login( );
+						main_login( );
 					}
 
 					break;
@@ -327,9 +405,17 @@ namespace Client
 					Register( );
 					break;
 				}
-				case 3:
+				case 9:
 				{
 					exit = true;
+					break;
+				}
+				default:
+				{
+					term.MsgPos( "Unknown Option.", Position( 14, 36 ), Format( FORMAT_BOLD ) );
+					cout << term;
+
+					WaitEnter( Position( 15, 1 ) );
 					break;
 				}
 			}
