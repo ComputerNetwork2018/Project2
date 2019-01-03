@@ -28,7 +28,7 @@ namespace Client
 		void _TryTCP( );
 
 	public:
-		TCPJob( const string &_command, const string &_host, const int _port, const int _timeout = 0, const int _id = 0 );
+		TCPJob( const string &_command, const string &_host, const int _port, const int _timeout = 6000, const int _id = 0 );
 
 		string command;
 		string host;
@@ -36,6 +36,8 @@ namespace Client
 
 		void TryTCP( string &info, bool &isTimeout );
 		int currentDelay( );
+
+		friend ostream& operator<< ( ostream &output, TCPJob &tcpJob );
 	};
 }
 

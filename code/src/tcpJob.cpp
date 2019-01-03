@@ -89,6 +89,8 @@ namespace Client
 
 			if( receive_string( serverFd, msg, error ) )
 			{
+				clog << "result = " + msg << endl;
+
 				close( serverFd );
 				nothingToDo = true;
 				return;
@@ -106,7 +108,7 @@ namespace Client
 	}
 
 	TCPJob::TCPJob( const string &_command, const string &_host, const int _port, const int _timeout, const int _id )
-		:command( _command ), host( _host ), port( _port ), timeout( _timeout ), id( _id ), startClock( steady_clock::now( ) ), result( "timeout when connect to " + host )
+		:command( _command ), host( _host ), port( _port ), timeout( _timeout ), id( _id ), startClock( steady_clock::now( ) ), result( "timeout" )
 	{
 	}
 
@@ -125,7 +127,7 @@ namespace Client
 			infoGiven = true;
 		}
 
-		if( not nothingToDo and isTimeout and serverFd != -1 )
+		if( ( not nothingToDo ) and isTimeout and serverFd != -1 )
 		{
 			close( serverFd );
 		}
@@ -134,5 +136,12 @@ namespace Client
 	int TCPJob::currentDelay( )
 	{
 		return static_cast<int>( duration_cast<microseconds>( steady_clock::now( ) - startClock ).count( ) / 1000 );
+	}
+
+	ostream& operator<< ( ostream &output, TCPJob &tcpJob )
+	{
+		output << "(" + tcpJob.command + "," + tcpJob.host + ":" + to_string( tcpJob.port ) + ")";
+
+		return output;
 	}
 }

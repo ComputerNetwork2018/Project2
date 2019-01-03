@@ -2,7 +2,7 @@
 
 # Compiler & options
 CC=g++
-CFLAGS=-std=c++11 -O2 -pthread
+CFLAGS=-std=c++11 -O2 -pthread -Wall -Wextra -Wshadow -Wconversion -fsanitize=address -fsanitize=undefined
 CFLAGS+=$(DFLAGS)
 
 # File directory
