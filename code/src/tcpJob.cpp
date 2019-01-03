@@ -89,7 +89,7 @@ namespace Client
 
 			if( receive_string( serverFd, msg, error ) )
 			{
-				clog << "result = " + msg << endl;
+				result = msg;
 
 				close( serverFd );
 				nothingToDo = true;

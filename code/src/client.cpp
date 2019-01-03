@@ -13,6 +13,14 @@
 #include "tcpJob.hpp"
 #include "terminal_util.hpp"
 
+#ifdef DEBUG
+
+#define DEBUG_MAIN
+#define DEBUG_LOGIN
+#define DEBUG_SENDER
+
+#endif
+
 using namespace std;
 
 namespace Client
@@ -28,7 +36,7 @@ namespace Client
 	bool exit;
 
 	mutex sendMutex;
-	queue<TCPJob> sendQueue;
+	vector<TCPJob> sendList;
 
 	mutex resultMutex;
 	queue<string> resultQueue;
@@ -99,7 +107,7 @@ namespace Client
 		}
 	}
 
-	bool Login( string &sessionToken )
+	bool Login( string &sessionTokenTobe )
 	{
 		term.Clear( );
 		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
@@ -126,10 +134,15 @@ namespace Client
 
 		unique_lock<mutex> sendLock( sendMutex );
 		auto job = TCPJob( command, serverName, serverPort );
-		clog << "\e[1;33mPush  \e[m" << job << flush;
-		sendQueue.push( job );
-		clog << "\e[1;33mPushed\e[m" << flush;
+		sendList.push_back( job );
 		sendLock.unlock( );
+		
+		term.Clear( );
+		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
+		term.MsgPos( "Login: ", Position( 3, 5 ) );
+		term.MsgPos( "Logging in...", Position( 5, 5 ) );
+		cout << term;
+
 		usleep( 50000 );
 		
 		bool loginPending = true;
@@ -143,31 +156,31 @@ namespace Client
 			{
 				string &result = resultQueue.front( );
 				
-				if( result == "WA" or result == "timeout" )
+				if( result == "timeout" )
 				{
 					loginSuccess = false;
-					term.MsgPos( " failed", Position( 5, 19 ) );
-					cout << term;
-
-					WaitEnter( Position( 6, 19 ) );
+					term.MsgPos( " failed : connection timeout", Position( 5, 18 ) );
+				}
+				else if( result.substr( 0, 2 ) == "WA" )
+				{
+					loginSuccess = false;
+					term.MsgPos( " failed : " + result.substr( 2 ), Position( 5, 18 ) );
 				}
 				else if( result.substr( 2 ) == "AC" )
 				{
 					loginSuccess = true;
-					sessionToken = result.substr( 3, 16 );
-					term.MsgPos( " success!", Position( 5, 19 ) );
-					cout << term;
-
-					WaitEnter( Position( 6, 19 ) );
+					sessionTokenTobe = result.substr( 3, 16 );
+					term.MsgPos( " success!", Position( 5, 18 ) );
 				}
 				else
 				{
-					term.MsgPos( "WTF?", Position( 5, 19 ), Format( FORMAT_BOLD, COLOR_RED, COLOR_BLACK ) );
-					clog << term;
-
-					WaitEnter( Position( 6, 19 ) );
+					loginSuccess = false;
+					term.MsgPos( " failed : unknown error [ " +  result +  " ]" + result.substr( 2 ), Position( 5, 18 ) );
 				}
 
+
+				cout << term;
+				WaitEnter( Position( 7, 5 ) );
 				loginPending = false;
 			}
 
@@ -179,7 +192,15 @@ namespace Client
 		return loginSuccess;
 	}
 
-	void Register( ) { }
+	bool Register( )
+	{
+
+	}
+
+	void Main_Login( )
+	{
+
+	}
 
 	int main( int argc, char **argv )
 	{
@@ -217,16 +238,30 @@ namespace Client
 			switch( userChoice )
 			{
 				case 1:
+				{
+					bool loginSuccess = Login( sessionToken );
+
+					if( loginSuccess )
 					{
-						bool success = Login( sessionToken );
-						break;
+						login = true;
+						Main_Login( );
 					}
-				case 2:
-					Register( );
+
 					break;
+				}
+				case 2:
+				{
+					if( Register( ) )
+					{
+
+					}
+					break;
+				}
 				case 3:
+				{
 					exit = true;
 					break;
+				}
 			}
 		}
 
@@ -240,59 +275,64 @@ namespace Client
 
 	void tcpSender( )
 	{
+#ifdef DEBUG_SENDER
 		term.MsgPos( "sender: thread begin.", Position( 20, 5 ) );
 		clog << term;
-
-		int count = 0;
+#endif
 
 		while( not exit )
 		{
-
-			string result = "";
-
-			term.MsgPos( "sender: getting mutex...", Position( 21, 5 ) );
-			clog << term;
-
 			unique_lock<mutex> sendLock( sendMutex );
-
-			term.MsgPos( "sender: mutex get.", Position( 22, 5 ) );
-			clog << term;
 			
-			if( not sendQueue.empty( ) )
+			while( not sendList.empty( ) )
 			{
-				++count;
-
-				auto job = sendQueue.front( );
-				bool isTimeout;
-
-				term.MsgPos( "sender: job.TryTCP( ) : \"" + job.command + "\" # " + to_string( count ), Position( 23, 5 ) );
-				clog << term << job;
-				job.TryTCP( result, isTimeout );
-
-				if( isTimeout )
+				for( auto it = sendList.begin( ); it != sendList.end( ); ++it )
 				{
-					term.MsgPos( "sender: timeout # " + to_string( count ), Position( 24, 5 ) );
-					clog << term;
+					auto &job = *it;
+					string result = "";
+					bool isTimeout;
 
-					sendQueue.pop( );
+#ifdef DEBUG_SENDER
+					term.MsgPos( "sender: job.TryTCP( ) : \"" + job.command + "\" # " + to_string( job.id ), Position( 20, 5 ) );
+					clog << term << job;
+#endif
+					
+					job.TryTCP( result, isTimeout );
+
+					if( result != "" )
+					{
+#ifdef DEBUG_SENDER
+						term.MsgPos( "sender: result = \"" + result + "\"", Position( 24, 5 ) );
+						clog << term;
+#endif
+
+						unique_lock<mutex> resultLock( resultMutex );
+
+						resultQueue.push( result );
+						
+						sendList.erase( it );
+						break;
+					}
+
+					if( isTimeout )
+					{
+#ifdef DEBUG_SENDER
+						term.MsgPos( "sender: timeout # " + to_string( job.id ), Position( 21, 5 ) );
+						clog << term;
+#endif
+
+						sendList.erase( it );
+						break;
+					}
 				}
 			}
 
 			sendLock.unlock( );
 			usleep( 618033 );
-
-			if( result != "" )
-			{
-				term.MsgPos( "sender: result = \"" + result + "\"", Position( 24, 5 ) );
-				clog << term;
-
-				unique_lock<mutex> resultLock( resultMutex );
-
-				resultQueue.push( result );
-			}
 		}
-
+#ifdef DEBUG_SENDER
 		term.MsgPos( "sender: dude.", Position( 20, 50 ) );
+#endif
 	}
 }
 

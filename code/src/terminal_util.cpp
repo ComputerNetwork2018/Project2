@@ -35,7 +35,7 @@ void Terminal_Util::MsgPos( const string &msg, const class Position &pos, const 
 {
 	lock_guard<mutex> outputLock( outputMutex );
 
-	//Position( pos );
+	Position( pos );
 	Format( format );
 	__output << msg;
 }
