@@ -249,8 +249,7 @@ namespace Client
 		string command = "signup " + username + " " + password;
 
 		unique_lock<mutex> sendLock( sendMutex );
-		TCPJob job = TCPJob( command, serverName, serverPort );
-		sendList.push_back( job );
+		sendList.push_back( TCPJob( command, serverName, serverPort ) );
 		sendLock.unlock( );
 
 		term.Clear( );
@@ -332,7 +331,7 @@ namespace Client
 		
 		unique_lock<mutex> sendLock( sendMutex );
 
-		sendList.push_back( command );
+		sendList.push_back( TCPJob( command, serverName, serverPort ) );
 
 		sendLock.unlock( );
 
