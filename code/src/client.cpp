@@ -22,6 +22,8 @@
 
 #endif
 
+#define MENU_PAGE_SIZE 20
+
 using namespace std;
 
 namespace Client
@@ -105,10 +107,53 @@ namespace Client
 		} while( temp != '\n' );
 	}
 
-	template< typename T >
-	void ShowList( const vector< T > &listToShow, const Position &pos = Position( 1, 1 ), const Format &format = Format( ) )
+	int ListMenu( const vector< string > &listToShow, const string &title )
 	{
+		int choiceInt = -1;
 
+		while( choiceInt == -1 )
+		{
+			term.Clear( );
+			term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
+			term.MsgPos( title, Position( 3, 5 ) );
+			cout << term;
+
+			if( listToShow.size( ) > MENU_PAGE_SIZE )
+			{
+				ListMenu_MultiPage( listToShow, 0 );
+			}
+			else
+			{
+				for( int i = 0; i < listToShow.size( ); ++i )
+				{
+					term.MsgPos( to_string( i + 1 ) + ( i < 10 ? ".  " : ". " ) + listToShow[ i ], Position( 5 + i, 5 ) );
+				}
+
+				cout << term;
+			}
+
+			term.MsgPos( "User to chat:     ( e to exit )", Position( 6 + listToShow.size( ), 5 ) );
+			term.MsgPos( "", Position( 6 + listToShow.size( ), 20 ) );
+			cout << term;
+
+			string userChoice;
+			cin >> userChoice;
+
+			if( userChoice == "e" )
+			{
+				return -1;
+			}
+			else if( stoiRange( userChoice, choiceInt, 1, listToShow.size( ) ) )
+			{
+				return choiceInt;
+			}
+			else
+			{
+				choiceInt = -1;
+			}
+		}
+
+		return choiceInt;
 	}
 
 	int Menu_Logout( )
