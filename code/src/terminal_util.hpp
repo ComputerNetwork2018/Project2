@@ -21,7 +21,9 @@ public:
 
 	void Clear( );
 	void Fill( const class Position &from, const class Position &to, const class Format &format, const char character = '@' );
+	
 	void MsgPos( const string &msg, const class Position &pos, const class Format &format = ::Format( ) );
+	template<size_t N> void MsgPos( const char( &msg )[ N ], const class Position &pos, const class Format &format = ::Format( ) );
 	template<typename T> void MsgPos( const T &msg, const class Position &pos, const class Format &format = ::Format( ) );
 
 	friend ostream& operator<< ( ostream &output, Terminal_Util &terminalUtil );
