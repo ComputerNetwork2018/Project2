@@ -40,6 +40,16 @@ void Terminal_Util::MsgPos( const string &msg, const class Position &pos, const 
 	__output << msg;
 }
 
+template<typename T>
+void Terminal_Util::MsgPos( const T &msg, const class Position &pos, const class Format &format )
+{
+	lock_guard<mutex> outputLock( outputMutex );
+
+	Position( pos );
+	Format( format );
+	__output << msg;
+}
+
 stringstream& Terminal_Util::OSStream( )
 {
 	return __output;

@@ -1,4 +1,5 @@
 #include <iostream>
+#include <sstream>
 #include <vector>
 #include <string>
 #include <thread>
@@ -102,6 +103,12 @@ namespace Client
 		{
 			temp = getchar( );
 		} while( temp != '\n' );
+	}
+
+	template< typename T >
+	void ShowList( const vector< T > &listToShow, const Position &pos = Position( 1, 1 ), const Format &format = Format( ) )
+	{
+
 	}
 
 	int Menu_Logout( )
@@ -319,6 +326,45 @@ namespace Client
 		}
 	}
 
+	void FriendList( )
+	{
+		string command = "friends " + sessionToken;
+		
+		unique_lock<mutex> sendLock( sendMutex );
+
+		sendList.push_back( command );
+
+		sendLock.unlock( );
+
+		bool friendListPending = true;
+		vector< string > friendList( 0 );
+
+		while( friendListPending )
+		{
+			unique_lock<mutex> resultLock( resultMutex );
+
+			if( not resultQueue.empty( ) )
+			{
+				stringstream resultStream( resultQueue.front( ) );
+				string result;
+
+				resultStream >> result; // get rid of the "AC" msg.
+
+				while( not result.eof( ) )
+				{
+					resultStream >> result;
+					friendList.push_back( result );
+				}
+
+				friendListPending = false;
+			}
+
+			resultLock.unlock( );
+		}
+
+
+	}
+
 	void main_login( )
 	{
 		term.Clear( );
@@ -332,7 +378,7 @@ namespace Client
 			{
 				case 1:
 				{
-					// FriendList( );
+					FriendList( );
 					break;
 				}
 				case 2:
