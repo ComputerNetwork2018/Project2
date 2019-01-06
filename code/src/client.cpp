@@ -120,20 +120,20 @@ namespace Client
 
 			if( listToShow.size( ) > MENU_PAGE_SIZE )
 			{
-				ListMenu_MultiPage( listToShow, 0 );
+				// ListMenu_MultiPage( listToShow, 0 );
 			}
 			else
 			{
-				for( int i = 0; i < listToShow.size( ); ++i )
+				for( size_t i = 0; i < listToShow.size( ); ++i )
 				{
-					term.MsgPos( to_string( i + 1 ) + ( i < 10 ? ".  " : ". " ) + listToShow[ i ], Position( 5 + i, 5 ) );
+					term.MsgPos( to_string( i + 1 ) + ( i < 10 ? ".  " : ". " ) + listToShow[ i ], Position( 5 + static_cast<int>( i ), 5 ) );
 				}
 
 				cout << term;
 			}
 
-			term.MsgPos( "User to chat:     ( e to exit )", Position( 6 + listToShow.size( ), 5 ) );
-			term.MsgPos( "", Position( 6 + listToShow.size( ), 20 ) );
+			term.MsgPos( "User to chat:     ( e to exit )", Position( 6 + static_cast<int>( listToShow.size( ) ), 5 ) );
+			term.MsgPos( "", Position( 6 + static_cast<int>( listToShow.size( ) ), 20 ) );
 			cout << term;
 
 			string userChoice;
@@ -143,7 +143,7 @@ namespace Client
 			{
 				return -1;
 			}
-			else if( stoiRange( userChoice, choiceInt, 1, listToShow.size( ) ) )
+			else if( stoiRange( userChoice, choiceInt, 1, static_cast< int >( listToShow.size( ) ) ) )
 			{
 				return choiceInt;
 			}
