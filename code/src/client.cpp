@@ -349,7 +349,7 @@ namespace Client
 
 				resultStream >> result; // get rid of the "AC" msg.
 
-				while( not result.eof( ) )
+				while( not resultStream.eof( ) )
 				{
 					resultStream >> result;
 					friendList.push_back( result );
