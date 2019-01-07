@@ -24,7 +24,7 @@ namespace DataBase
 			}
 			string to_json( )const
 			{
-				return "{from:" + from + ",to:" + to + ",text:" + text + "}";
+				return "{from:" + from + ",to:" + to + ",text:" + text + "}" + prev + "," + next;
 			}
 			bool belong_to( const string &name )const
 			{
@@ -52,7 +52,7 @@ namespace DataBase
 		{
 			const int len = 16;
 			string ans = "";
-			for( int i = 0; i < len; i++ )
+			for( int i = 0; i<len; i++ )
 			{
 				const unsigned v = (unsigned) Rand( ) & 0xf;
 				if( v <= 9 )ans.push_back( (char) ( '0' + v ) );
@@ -76,7 +76,7 @@ namespace DataBase
 		}
 		map<pair<string, string>, string>::iterator GetLastMessage( const string &user1, const string &user2 )
 		{
-			if( user1 > user2 )return GetLastMessage( user2, user1 );
+			if( user1>user2 )return GetLastMessage( user2, user1 );
 			const auto &key = make_pair( user1, user2 );
 			return last_message.find( key );
 		}
@@ -215,7 +215,7 @@ namespace DataBase
 			auto msg = it->second;
 			if( !msg.belong_to( username ) )return response = "permission denied", false;
 			vector<string>ans;
-			for( int i = 0; i < desired_count; i++ )
+			for( int i = 0; i<desired_count; i++ )
 			{
 				assert( msg.belong_to( username ) );
 				const string &next_id = msg.GetNext( );
@@ -223,6 +223,7 @@ namespace DataBase
 				const auto iu = messages.find( next_id );
 				assert( iu != messages.end( ) );
 				msg = iu->second;
+				ans.push_back( next_id );
 			}
 			response = to_string( ans.size( ) );
 			for( const string &id : ans )response += " " + id;
@@ -235,14 +236,17 @@ namespace DataBase
 			auto msg = it->second;
 			if( !msg.belong_to( username ) )return response = "permission denied", false;
 			vector<string>ans;
-			for( int i = 0; i < desired_count; i++ )
+			//            clog<<"desired_count="<<desired_count<<endl;
+			for( int i = 0; i<desired_count; i++ )
 			{
 				assert( msg.belong_to( username ) );
 				const string &prev_id = msg.GetPrev( );
+				//clog<<"i="<<i<<",prev_id="<<prev_id<<endl;
 				if( prev_id == "" )break;
 				const auto iu = messages.find( prev_id );
 				assert( iu != messages.end( ) );
 				msg = iu->second;
+				ans.push_back( prev_id );
 			}
 			response = to_string( ans.size( ) );
 			for( const string &id : ans )response += " " + id;
@@ -263,7 +267,7 @@ namespace DataBase
 		{
 			return response = "desired_count isn't a number", false;
 		}
-		if( n < 1 || n>100 )return response = "supported range of desired_count is 1~100, got " + to_string( n ), false;
+		if( n<1 || n>100 )return response = "supported range of desired_count is 1~100, got " + to_string( n ), false;
 		return TryGetNextMessages( username, message_id, n, response );
 	}
 	bool TryGetPreviousMessages( const string &session_token, const string &message_id, const string &desired_count, string &response )
@@ -280,7 +284,7 @@ namespace DataBase
 		{
 			return response = "desired_count isn't a number", false;
 		}
-		if( n < 1 || n>100 )return response = "supported range of desired_count is 1~100, got " + to_string( n ), false;
+		if( n<1 || n>100 )return response = "supported range of desired_count is 1~100, got " + to_string( n ), false;
 		return TryGetPreviousMessages( username, message_id, n, response );
 	}
 	bool TryOnlineCheck( const string &session_token, const string &name, string &response )
@@ -289,7 +293,7 @@ namespace DataBase
 		string username;
 		if( !TryGetUsername( session_token, username ) )return response = "invalid session_token", false;
 		if( !IsUserExists( name ) )return response = "user \"" + name + "\" not exists", false;
-		for( const auto p : session_tokens )if( p.second.first == name && TimeBetween( p.second.second ) < 1000 * 60 )return response = "online", true;
+		for( const auto p : session_tokens )if( p.second.first == name && TimeBetween( p.second.second )<1000 * 60 )return response = "online", true;
 		return response = "offline", true;
 	}
 	namespace
@@ -309,7 +313,7 @@ namespace DataBase
 				file_request_status[ receiver_name ] = "=====requested=====";
 			}
 			//////////////////////////// cerr<<"2. sender waits for receiver to admit the request. HOW: watch file_request_status"<<endl;
-			for( const auto start_clock = steady_clock::now( ); TimeBetween( start_clock ) < 1000 * 5;) // wait for 5 seconds
+			for( const auto start_clock = steady_clock::now( ); TimeBetween( start_clock )<1000 * 5;) // wait for 5 seconds
 			{
 				usleep( 1 );
 				lock_guard<mutex>guard( mutex_global );
@@ -349,7 +353,7 @@ namespace DataBase
 		{
 			return response = "file_size isn't a number", false;
 		}
-		if( n < 0 || n>1000000000 )return response = "supported range of file_size is 0~1000000000, got " + to_string( n ), false;
+		if( n<0 || n>1000000000 )return response = "supported range of file_size is 0~1000000000, got " + to_string( n ), false;
 		// below function must implement thread-safety
 		return TryFileRequest( username, receiver_name, n, response );
 	}
@@ -374,7 +378,7 @@ namespace DataBase
 		}
 		string file_id;
 		//////////////////////////// cerr<<"6. receiver waits for file_id to be generated. HOW: watch file_request_status until changed into file_id"<<endl;
-		for( const auto start_clock = steady_clock::now( ); TimeBetween( start_clock ) < 1000 * 5;) // wait for 5 seconds
+		for( const auto start_clock = steady_clock::now( ); TimeBetween( start_clock )<1000 * 5;) // wait for 5 seconds
 		{
 			usleep( 1 );
 			lock_guard<mutex>guard( mutex_global );
@@ -403,7 +407,7 @@ namespace DataBase
 		}
 
 		////////////////////////////////// 9. sender waits for the file to be admitted. HOW: watch file_id to be removed
-		for( const auto start_clock = steady_clock::now( ); TimeBetween( start_clock ) < 1000 * 5;) // wait for 5 seconds
+		for( const auto start_clock = steady_clock::now( ); TimeBetween( start_clock )<1000 * 5;) // wait for 5 seconds
 		{
 			usleep( 1 );
 			lock_guard<mutex>guard( mutex_global );
@@ -428,7 +432,7 @@ namespace DataBase
 		}
 		string file_content;
 		//////////////////////////////// 10. receiver waits for the file associated with its file_id to be put up. HOW: watch file_contents to appear 
-		for( const auto start_clock = steady_clock::now( ); TimeBetween( start_clock ) < 1000 * 5;) // wait for 5 seconds
+		for( const auto start_clock = steady_clock::now( ); TimeBetween( start_clock )<1000 * 5;) // wait for 5 seconds
 		{
 			usleep( 1 );
 			lock_guard<mutex>guard( mutex_global );
@@ -546,9 +550,9 @@ bool ProcessMessage( const string &msg, string &response )
 														// “send_file <session_id> <file_id> <entire file content>”
 														if( title == "send_file" )
 														{
-															if( args.size( ) < 4 )return response = "send_file <session_id> <file_id> <entire file content> expect 4 params, got " + to_string( args.size( ) ), false;
+															if( args.size( )<4 )return response = "send_file <session_id> <file_id> <entire file content> expect 4 params, got " + to_string( args.size( ) ), false;
 															string file_content = args[ 3 ];
-															for( int i = 4; i < (int) args.size( ); i++ )file_content += " " + args[ i ];
+															for( int i = 4; i<(int) args.size( ); i++ )file_content += " " + args[ i ];
 															return DataBase::TrySendFile( args[ 1 ], args[ 2 ], file_content, response );
 														}
 														else
@@ -624,7 +628,7 @@ int main( int argc, char *argv[ ] )
 				{
 					lock_guard<mutex>guard( mutex_client_fds );
 #ifdef DEBUG
-					cout << "recv from " << client_fds[ fd ] << " : \"" << msg << "\"" << endl;
+						cout << "recv from " << client_fds[ fd ] << " : \"" << msg << "\"" << endl;
 #else
 					cout << "recv from " << client_fds[ fd ] << endl;
 #endif			
@@ -637,10 +641,10 @@ int main( int argc, char *argv[ ] )
 					string to_send = ProcessMessage( _msg, response ) ? "AC" : "WA";
 					if( response != "" )to_send += " " + response;
 					bool err;
-					if( !send_string( _fd, to_send, err ) )cerr << "send error" << endl;
 #ifdef DEBUG
 					cout << "send back \"" << to_send << "\"" << endl;
 #endif
+					if( !send_string( _fd, to_send, err ) )cerr << "send error" << endl;
 					close( _fd );
 					{
 						lock_guard<mutex>lock( mutex_client_fds );

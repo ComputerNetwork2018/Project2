@@ -473,15 +473,14 @@ namespace Client
 
 		thread chatMgr( chatManager );
 
-		term.Fill( Position( 20, 0 ), Position( 21, 300 ), Format( ), ' ' );
-		cout << term;
-
-		term.MsgPos( "> ", Position( 20, 5 ) );
-		term.MsgPos( "Type \"/q\" (without quotation mark) in to quit.", Position( 22, 5 ) );
+		term.Fill( Position( 25, 0 ), Position( 26, 300 ), Format( ), ' ' );
+		term.MsgPos( "> ", Position( 25, 5 ) );
+		term.MsgPos( "Type \"/q\" (without quotation mark) in to quit.", Position( 27, 5 ) );
 		cout << term;
 
 		string msg;
-		cin >> msg;
+		getchar( );
+		getline( cin, msg );
 
 		while( msg != "/q" )
 		{
@@ -491,9 +490,11 @@ namespace Client
 			}
 			usleep( 50000 );
 
-			term.MsgPos( "> ", Position( 20, 5 ) );
+			term.Fill( Position( 25, 0 ), Position( 26, 300 ), Format( ), ' ' );
+			term.MsgPos( "> ", Position( 25, 5 ) );
+			term.MsgPos( "Type \"/q\" (without quotation mark) in to quit.", Position( 27, 5 ) );
 			cout << term;
-			cin >> msg;
+			getline( cin, msg );
 		}
 
 		chatting = false;
@@ -774,7 +775,7 @@ namespace Client
 		begin = rawMsg.find( "text:", end ) + 5;
 		end = rawMsg.find_first_of( '}', begin );
 
-		msg += rawMsg.substr( begin, end - begin );
+		msg += Decode( rawMsg.substr( begin, end - begin ) );
 
 		return msg;
 	}
@@ -861,19 +862,22 @@ namespace Client
 	void getMsgs( const string &rootMsgId, vector<string> &resultList )
 	{
 		vector<string> temp;
+
 		getMsgs( rootMsgId, 13, true, temp );
-
-		for( auto i = temp.rbegin( ); i != temp.rend( ); ++i )
-		{
-			resultList.push_back( *i );
-		}
-		resultList.push_back( rootMsgId );
-
-		getMsgs( rootMsgId, 14 - temp.size( ), false, temp );
 		for( auto i = temp.begin( ); i != temp.end( ); ++i )
 		{
 			resultList.push_back( *i );
 		}
+
+		resultList.push_back( rootMsgId );
+
+		getMsgs( rootMsgId, 13, false , temp );
+		for( auto i = temp.rbegin( ); i != temp.rend( ); ++i )
+		{
+			resultList.push_back( *i );
+		}
+
+		temp.resize( 14 );
 	}
 
 	void chatManager( )
@@ -900,7 +904,7 @@ namespace Client
 			}
 			else
 			{
-				command = "send_message " + sessionToken + " " + partnerUsername + " " + msg;
+				command = "send_message " + sessionToken + " " + partnerUsername + " " + Encode( msg );
 			}
 
 			SendJobToSender( TCPJob( command, serverName, serverPort ) );
@@ -962,9 +966,10 @@ namespace Client
 					}
 				}
 
+				term.Fill( Position( 10, 1 ), Position( 23, 100 ), Format( ), ' ' );
 				for( size_t i = 0; i < msgCache.size( ); ++i )
 				{
-					term.MsgPos( ParseMsg( msgCache[ i ].second ), Position( 18 - msgCache.size( ) + i, 5 ) );
+					term.MsgPos( ParseMsg( msgCache[ i ].second ), Position( 23 - msgCache.size( ) + i, 5 ) );
 				}
 
 				cout << "\e[s" << flush;
