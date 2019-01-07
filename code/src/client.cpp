@@ -373,7 +373,6 @@ namespace Client
 		string command = "signup " + username + " " + password;
 
 		SendJobToSender( TCPJob( command, serverName, serverPort ) );
-		usleep( 50000 );
 
 		bool registerPending = true;
 		while( registerPending )
