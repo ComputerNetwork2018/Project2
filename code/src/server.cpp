@@ -2,7 +2,8 @@
 #include<thread>
 #include<mutex>
 #include<chrono>
-#include"common.h"
+#include"common.hpp"
+#include"common.cpp"
 using namespace std;
 using namespace chrono;
 namespace DataBase
