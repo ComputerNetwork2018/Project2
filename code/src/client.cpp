@@ -289,7 +289,6 @@ namespace Client
 		string command = "login " + username + " " + password;
 
 		SendJobToSender( TCPJob( command, serverName, serverPort ) );
-		usleep( 50000 );
 
 		bool loginPending = true;
 		bool loginSuccess = false;
@@ -333,8 +332,6 @@ namespace Client
 					WaitEnter( Position( 7, 5 ) );
 				}
 			}
-
-			usleep( 50000 );
 		}
 
 		return loginSuccess;
@@ -413,8 +410,6 @@ namespace Client
 					WaitEnter( Position( 7, 5 ) );
 				}
 			}
-
-			usleep( 50000 );
 		}
 	}
 
@@ -488,7 +483,6 @@ namespace Client
 				lock_guard<mutex> msgLock( msgMutex );
 				msgQueue.push( msg );
 			}
-			usleep( 50000 );
 
 			term.Fill( Position( 25, 0 ), Position( 26, 300 ), Format( ), ' ' );
 			term.MsgPos( "Type \"/q\" (without quotation mark) in to quit.", Position( 27, 5 ) );
@@ -507,7 +501,6 @@ namespace Client
 		string command = ( listType == "" ? "friends" : listType ) + " " + sessionToken;
 
 		SendJobToSender( TCPJob( command, serverName, serverPort ) );
-		usleep( 50000 );
 
 		bool listPending = true;
 		vector< string > list( 0 );
@@ -543,8 +536,6 @@ namespace Client
 					listPending = false;
 				}
 			}
-
-			usleep( 50000 );
 		}
 
 		int choiceInt = ListMenu( list, listType );
@@ -755,7 +746,6 @@ namespace Client
 
 			sendLock.unlock( );
 			resultLock.unlock( );
-			usleep( 61803 );
 		}
 #ifdef DEBUG_SENDER
 		term.MsgPos( "sender: dude.", Position( 30, 50 ) );
@@ -783,7 +773,6 @@ namespace Client
 	{
 		string command = "get_message " + sessionToken + " " + msgId;
 		SendJobToSender( TCPJob( command, serverName, serverPort ) );
-		usleep( 50000 );
 
 		bool msgPending = true;
 		while( msgPending )
@@ -809,8 +798,6 @@ namespace Client
 					msgPending = false;
 				}
 			}
-
-			usleep( 50000 );
 		}
 	}
 
@@ -818,7 +805,6 @@ namespace Client
 	{
 		string command = ( newer ? "next_messages " : "prev_messages " ) + sessionToken + " " + rootMsgId + " " + to_string( count );
 		SendJobToSender( TCPJob( command, serverName, serverPort ) );
-		usleep( 50000 );
 
 		bool responsePending = true;
 		while( responsePending )
@@ -853,8 +839,6 @@ namespace Client
 					responsePending = false;
 				}
 			}
-
-			usleep( 50000 );
 		}
 	}
 
@@ -862,19 +846,22 @@ namespace Client
 	{
 		vector<string> temp( 0 );
 
-		getMsgs( rootMsgId, 13, true, temp );
-		for( auto i = temp.begin( ); i != temp.end( ); ++i )
+		getMsgs( rootMsgId, 13, false, temp );
+		for( auto i = temp.rbegin( ); i != temp.rend( ); ++i )
 		{
 			resultList.push_back( *i );
 		}
 
 		resultList.push_back( rootMsgId );
 
-		temp.clear( );
-		getMsgs( rootMsgId, 14 - resultList.size( ), false , temp );
-		for( auto i = temp.rbegin( ); i != temp.rend( ); ++i )
+		if( resultList.size( ) < 14 )
 		{
-			resultList.push_back( *i );
+			temp.clear( );
+			getMsgs( rootMsgId, 14 - resultList.size( ), true, temp );
+			for( auto i = temp.begin( ); i != temp.end( ); ++i )
+			{
+				resultList.push_back( *i );
+			}
 		}
 	}
 
@@ -906,7 +893,6 @@ namespace Client
 			}
 
 			SendJobToSender( TCPJob( command, serverName, serverPort ) );
-			usleep( 50000 );
 
 			bool responsePending = true;
 			while( responsePending )
@@ -935,8 +921,6 @@ namespace Client
 						responsePending = false;
 					}
 				}
-
-				usleep( 50000 );
 			}
 
 			if( rootMsgId != "" )
@@ -944,7 +928,7 @@ namespace Client
 				vector<string> resultList( 0 );
 				getMsgs( rootMsgId, resultList );
 #ifdef DEBUG_CHAT
-				clog << "root = " + rootMsgId << endl;
+				clog << "size = " << resultList.size( ) << " root = " << rootMsgId << endl;
 #endif
 				bool push = msgCache.empty( );
 				for( auto &i : resultList )
