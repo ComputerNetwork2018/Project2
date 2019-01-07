@@ -474,8 +474,8 @@ namespace Client
 		thread chatMgr( chatManager );
 
 		term.Fill( Position( 25, 0 ), Position( 26, 300 ), Format( ), ' ' );
-		term.MsgPos( "> ", Position( 25, 5 ) );
 		term.MsgPos( "Type \"/q\" (without quotation mark) in to quit.", Position( 27, 5 ) );
+		term.MsgPos( "> ", Position( 25, 5 ) );
 		cout << term;
 
 		string msg;
@@ -491,8 +491,8 @@ namespace Client
 			usleep( 50000 );
 
 			term.Fill( Position( 25, 0 ), Position( 26, 300 ), Format( ), ' ' );
-			term.MsgPos( "> ", Position( 25, 5 ) );
 			term.MsgPos( "Type \"/q\" (without quotation mark) in to quit.", Position( 27, 5 ) );
+			term.MsgPos( "> ", Position( 25, 5 ) );
 			cout << term;
 			getline( cin, msg );
 		}
@@ -665,7 +665,7 @@ namespace Client
 		tcpThread.join( );
 
 		term.Clear( );
-		clog << term;
+		cout << term;
 
 		return 0;
 	}
@@ -676,7 +676,6 @@ namespace Client
 		term.MsgPos( "sender: thread begin.", Position( 20, 5 ) );
 		clog << term;
 #endif
-
 		while( not exit )
 		{
 			unique_lock<mutex> sendLock( sendMutex, defer_lock );
@@ -861,7 +860,7 @@ namespace Client
 
 	void getMsgs( const string &rootMsgId, vector<string> &resultList )
 	{
-		vector<string> temp;
+		vector<string> temp( 0 );
 
 		getMsgs( rootMsgId, 13, true, temp );
 		for( auto i = temp.begin( ); i != temp.end( ); ++i )
@@ -871,19 +870,18 @@ namespace Client
 
 		resultList.push_back( rootMsgId );
 
-		getMsgs( rootMsgId, 13, false , temp );
+		temp.clear( );
+		getMsgs( rootMsgId, 14 - resultList.size( ), false , temp );
 		for( auto i = temp.rbegin( ); i != temp.rend( ); ++i )
 		{
 			resultList.push_back( *i );
 		}
-
-		temp.resize( 14 );
 	}
 
 	void chatManager( )
 	{
 		string rootMsgId = "";
-		deque< pair< string, string > > msgCache;
+		deque< pair< string, string > > msgCache( 0 );
 
 		while( chatting )
 		{
@@ -945,12 +943,20 @@ namespace Client
 			{
 				vector<string> resultList( 0 );
 				getMsgs( rootMsgId, resultList );
-
+#ifdef DEBUG_CHAT
+				clog << "root = " + rootMsgId << endl;
+#endif
 				bool push = msgCache.empty( );
 				for( auto &i : resultList )
 				{
+#ifdef DEBUG_CHAT
+					clog << i + " ";
+#endif
 					if( push )
 					{
+#ifdef DEBUG_CHAT
+						clog << "<-p ";
+#endif
 						msgCache.push_back( pair<string, string>( i, "" ) );
 						getMsgFromId( msgCache.back( ).first, msgCache.back( ).second );
 
@@ -964,6 +970,9 @@ namespace Client
 					{
 						push = true;
 					}
+#ifdef DEBUG_CHAT
+					clog << endl;
+#endif
 				}
 
 				term.Fill( Position( 10, 1 ), Position( 23, 100 ), Format( ), ' ' );
@@ -984,6 +993,7 @@ namespace Client
 				{
 					rootMsgId = msgCache.back( ).first;
 				}
+				// rootMsgId = msgCache.back( ).second.substr( msgCache.back( ).second.find_last_of( ',' ) + 1 );
 			}
 
 			sleep( 1 );
