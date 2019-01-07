@@ -500,65 +500,35 @@ bool ProcessMessage( const string &msg, string &response )
 							if( title == "get_message" )
 							{
 								if( args.size( ) != 3 )return response = "get_message expect 3 params, got " + to_string( args.size( ) ), false;
-								if( DataBase::TryGetMessage( args[ 1 ], args[ 2 ], response ) )
-								{
-									response = "get " + response;
-									return true;
-								}
-
-								return false;
+								return DataBase::TryGetMessage( args[ 1 ], args[ 2 ], response );
 							}
 							else
 								// “send_message <session_token> <partner username> <message>”
 								if( title == "send_message" )
 								{
 									if( args.size( ) != 4 )return response = "send_message expect 4 params, got " + to_string( args.size( ) ), false;
-									if( DataBase::TrySendMessage( args[ 1 ], args[ 2 ], args[ 3 ], response ) )
-									{
-										response = "send " + response;
-										return true;
-									}
-
-									return false;
+									return DataBase::TrySendMessage( args[ 1 ], args[ 2 ], args[ 3 ], response );
 								}
 								else
 									// “last_message <session_token> <partner username>”
 									if( title == "last_message" )
 									{
 										if( args.size( ) != 3 )return response = "last_message expect 3 params, got " + to_string( args.size( ) ), false;
-										if( DataBase::TryGetLastMessage( args[ 1 ], args[ 2 ], response ) )
-										{
-											response = "last " + response;
-											return true;
-										}
-
-										return false;
+										return DataBase::TryGetLastMessage( args[ 1 ], args[ 2 ], response );
 									}
 									else
 										// “next_messages <session_token> <message_id> <desired number of messages to get>”
 										if( title == "next_messages" )
 										{
 											if( args.size( ) != 4 )return response = "next_messages expect 4 params, got " + to_string( args.size( ) ), false;
-											if( DataBase::TryGetNextMessages( args[ 1 ], args[ 2 ], args[ 3 ], response ) )
-											{
-												response = "next " + response;
-												return true;
-											}
-
-											return false;
+											return DataBase::TryGetNextMessages( args[ 1 ], args[ 2 ], args[ 3 ], response );
 										}
 										else
 											// “prev_messages <session_token> <message_id> <desired number of messages to get>”
 											if( title == "prev_messages" )
 											{
 												if( args.size( ) != 4 )return response = "prev_messages expect 4 params, got " + to_string( args.size( ) ), false;
-												if( DataBase::TryGetPreviousMessages( args[ 1 ], args[ 2 ], args[ 3 ], response ) )
-												{
-													response = "prev " + response;
-													return true;
-												}
-
-												return false;
+												return DataBase::TryGetPreviousMessages( args[ 1 ], args[ 2 ], args[ 3 ], response );
 											}
 											else
 												// “file_request <session_id> <receiver username> <file_size>”

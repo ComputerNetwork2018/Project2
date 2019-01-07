@@ -47,10 +47,13 @@ namespace Client
 	mutex resultMutex;
 	queue<string> resultQueue;
 
-	// chat manager thread
+	// chat manager thread & main=chatMgr communication
 	void chatManager( );
 	bool chatting;
 	string partnerUsername;
+
+	mutex msgMutex;
+	queue<string> msgQueue;
 
 	// login variables
 	bool login = false;
@@ -482,16 +485,17 @@ namespace Client
 
 		while( msg != "/q" )
 		{
-			string command = "send_message " + sessionToken + " " + partnerUsername + " " + msg;
-
-			SendJobToSender( TCPJob( command, serverName, serverPort ) );
+			{
+				lock_guard<mutex> msgLock( msgMutex );
+				msgQueue.push( msg );
+			}
 			usleep( 50000 );
 
 			term.MsgPos( "> ", Position( 20, 5 ) );
 			cout << term;
 			cin >> msg;
 		}
-		
+
 		chatting = false;
 
 		chatMgr.join( );
@@ -517,19 +521,21 @@ namespace Client
 					stringstream resultStream( resultQueue.front( ) );
 					string result;
 
+					resultStream >> result; // get rid of the "AC"/"timeout" msg
+
 					if( result == "timeout" )
 					{
 						ConnectionTimeout( 14 );
-						break;
 					}
-
-					resultStream >> result; // get rid of the "AC" msg.
-					resultStream >> result; // and get rid of N.
-
-					while( not resultStream.eof( ) )
+					else
 					{
-						resultStream >> result;
-						list.push_back( result );
+						resultStream >> result; // get rid of N.
+
+						while( not resultStream.eof( ) )
+						{
+							resultStream >> result;
+							list.push_back( result );
+						}
 					}
 
 					resultQueue.pop( );
@@ -755,16 +761,32 @@ namespace Client
 		term.MsgPos( "sender: dude.", Position( 30, 50 ) );
 #endif
 	}
-
-	bool getLastMsgId( string &rootMsgId )
+	
+	string ParseMsg( const string &rawMsg )
 	{
-		string command = "last_message " + sessionToken + " " + partnerUsername;
+		string msg = "";
 
+		auto begin = rawMsg.find( "from:" ) + 5;
+		auto end = rawMsg.find_first_of( ',', begin );
+
+		msg += "[ " + rawMsg.substr( begin, end - begin ) + " ] : ";
+
+		begin = rawMsg.find( "text:", end ) + 5;
+		end = rawMsg.find_first_of( '}', begin );
+
+		msg += rawMsg.substr( begin, end - begin );
+
+		return msg;
+	}
+
+	void getMsgFromId( const string &msgId, string &msg )
+	{
+		string command = "get " + sessionToken + " " + msgId;
 		SendJobToSender( TCPJob( command, serverName, serverPort ) );
 		usleep( 50000 );
-
-		bool msgIdPending = true;
-		while( msgIdPending )
+		
+		bool msgPending = true;
+		while( msgPending )
 		{
 			{
 				lock_guard<mutex> resultLock( resultMutex );
@@ -772,67 +794,34 @@ namespace Client
 				if( not resultQueue.empty( ) )
 				{
 					string &result = resultQueue.front( );
-#ifdef DEBUG_CHAT
-					if( result.substr( 0, 2 ) == "AC" and result.substr( 3, 4 ) == "send" )
+
+					if( result == "timeout" )
 					{
-						term.MsgPos( "getMsgs : " + result, Position( 41, 5 ) );
+						msg = "";
+						ConnectionTimeout( 20 );
 					}
 					else
 					{
-						term.MsgPos( "getMsgs : " + result, Position( 40, 5 ) );
-					}
-					cout << term;
-#endif
-					if( result == "timeout" )
-					{
-						ConnectionTimeout( 20 );
-						break;
-					}
-					else if( result.substr( 0, 2 ) == "AC" )
-					{
-						if( result.substr( 3, 4 ) == "send" )
-						{
-							resultQueue.pop( );
-							continue;
-						}
-						else if( result.substr( 3 ) == "last " )
-						{
-							rootMsgId = "";
-						}
-						else
-						{
-							rootMsgId = result.substr( 8, 16 );
-						}
-
-						resultQueue.pop( );
-						return true;
+						msg = result.substr( 3, 16 );
 					}
 
 					resultQueue.pop( );
-					msgIdPending = false;
+					msgPending = false;
 				}
 			}
 
 			usleep( 50000 );
 		}
-
-		return false;
 	}
 
-	bool getMsgs( deque<string> &msgCache, const string &msgId, const bool newer, const int count = 1 )
+	void getMsgs( const string &rootMsgId, const int count, const bool newer, vector<string> &resultList )
 	{
-		if( msgId == "" )
-		{
-			return false;
-		}
-
-		string command = ( newer ? "next_messages " : "prev_messages " ) + sessionToken + " " + msgId + " " + to_string( count );
-
+		string command = ( newer ? "next_messages " : "prev_messages " ) + sessionToken + " " + rootMsgId + " " + to_string( count );
 		SendJobToSender( TCPJob( command, serverName, serverPort ) );
 		usleep( 50000 );
 
-		bool msgsPending = true;
-		while( msgsPending )
+		bool responsePending = true;
+		while( responsePending )
 		{
 			{
 				lock_guard<mutex> resultLock( resultMutex );
@@ -840,83 +829,130 @@ namespace Client
 				if( not resultQueue.empty( ) )
 				{
 					stringstream resultStream( resultQueue.front( ) );
-					string result;
-#ifdef DEBUG_CHAT
-					if( result.substr( 0, 2 ) == "AC" and result.substr( 3, 4 ) == "send" )
+					string result; // get rid of "AC"/"timeout" msg.
+
+					resultStream >> result;
+
+					if( result == "timeout" )
 					{
-						term.MsgPos( "getMsgs : " + result, Position( 41, 5 ) );
+						resultList.clear( );
+						ConnectionTimeout( 20 );
 					}
 					else
 					{
-						term.MsgPos( "getMsgs : " + result, Position( 40, 5 ) );
-					}
-					cout << term;
-#endif
-					if( result == "timeout" )
-					{
-						ConnectionTimeout( 20 );
-						break;
-					}
-					else if( result.substr( 0, 2 ) == "AC" )
-					{
-						if( result.substr( 3, 4 ) == "send" )
-						{
-							resultQueue.pop( );
-							continue;
-						}
-						else
-						{
-							resultStream >> result; // get rid of the "AC" msg.
-							resultStream >> result; // get rid of the "prev"/"next" msg;
-							resultStream >> result; // and get rif of N.
+						resultStream >> result; // get rid of N.
 
-							while( not resultStream.eof( ) )
-							{
-								resultStream >> result;
-								msgCache.push_back( result );
-							}
-
-							resultQueue.pop( );
-							return true;
+						while( not resultStream.eof( ) )
+						{
+							resultStream >> result;
+							resultList.push_back( result );
 						}
 					}
+
+					resultQueue.pop( );
+					responsePending = false;
 				}
 			}
 
-			usleep( 50000 );
+			sleep( 50000 );
 		}
-
-		return false;
 	}
 
 	void chatManager( )
 	{
 		string rootMsgId = "";
-		deque< string > msgCache;
-
-		term.Clear( );
-		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
-		term.MsgPos( "< Chat: " + partnerUsername + " >", Position( 3, 5 ) );
-		cout << term;
+		deque< pair< string, string > > msgCache;
 
 		while( chatting )
 		{
-			while( not getLastMsgId( rootMsgId ) )
+			string msg = "", command;
 			{
-				// empty
+				lock_guard<mutex> msgLock( msgMutex );
+
+				if( not msgQueue.empty( ) )
+				{
+					msg = msgQueue.front( );
+					msgQueue.pop( );
+				}
+			}
+
+			if( msg == "" )
+			{
+				command = "last_message " + sessionToken + " " + partnerUsername;
+			}
+			else
+			{
+				command = "send_message " + sessionToken + " " + partnerUsername + " " + msg;
+			}
+
+			SendJobToSender( TCPJob( command, serverName, serverPort ) );
+			usleep( 50000 );
+
+			bool responsePending = true;
+			while( responsePending )
+			{
+				{
+					lock_guard<mutex> resultLock( msgMutex );
+
+					if( not resultQueue.empty( ) )
+					{
+						string &result = resultQueue.front( );
+
+						if( result == "timeout" )
+						{
+							ConnectionTimeout( 20 );
+						}
+						else if( result == "AC" )
+						{
+							rootMsgId = "";
+						}
+						else
+						{
+							rootMsgId = result.substr( 3, 16 );
+						}
+
+						resultQueue.pop( );
+						responsePending = false;
+					}
+				}
+
+				usleep( 50000 );
 			}
 
 			if( rootMsgId != "" )
 			{
-				while( not getMsgs( msgCache, rootMsgId, false, 14 ) )
-				{
-					// empty
-				}
-			}
+				msgCache.push_back( pair<string, string>( rootMsgId, "" ) );
 
-			for( int i = msgCache.size( ) - 1; i >= 0; --i )
-			{
-				term.MsgPos( msgCache[ i ], Position( 18 - msgCache.size( ) + i ) );
+				vector<string> resultList( 0 );
+				getMsgs( rootMsgId, 13, true, resultList );
+
+				for( auto &i : resultList )
+				{
+					msgCache.push_back( pair<string, string>( i, "" ) );
+
+					if( msgCache.size( ) > 14 )
+					{
+						msgCache.pop_front( );
+					}
+				}
+
+				resultList.clear( );
+				getMsgs( rootMsgId, 14 - resultQueue.size( ), false, resultList );
+
+				for( auto &i : resultList )
+				{
+					msgCache.push_front( pair<string, string>( i, "" ) );
+				}
+
+				for( auto &i : msgCache )
+				{
+					getMsgFromId( i.first, i.second );
+				}
+
+				for( size_t i = 0; i < msgCache.size( ); ++i )
+				{
+					term.MsgPos( ParseMsg( msgCache[ i ].second ), Position( 18 - msgCache.size( ) + i ) );
+				}
 				cout << term;
 			}
 
