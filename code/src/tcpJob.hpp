@@ -16,11 +16,14 @@ namespace Client
 	class TCPJob
 	{
 	private:
-		steady_clock::time_point startClock;
-
 		int serverFd;
-		bool nothingToDo;
-		bool isHandshaking, isConnected, isSent, infoGiven;
+		bool nothingToDo = false;
+		bool isHandshaking = false;
+		bool isConnected = false;
+		bool isSent = false;
+		bool infoGiven = false;
+		
+		steady_clock::time_point startClock;
 
 		string result;
 		sockaddr_in socketInfo;

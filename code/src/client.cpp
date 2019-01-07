@@ -19,6 +19,7 @@
 #define DEBUG_MAIN
 #define DEBUG_LOGIN
 #define DEBUG_SENDER
+#define DEBUG_LIST_MENU
 
 #endif
 
@@ -39,7 +40,7 @@ namespace Client
 	bool exit;
 
 	mutex sendMutex;
-	vector<TCPJob> sendList;
+	queue<TCPJob> sendQueue;
 
 	mutex resultMutex;
 	queue<string> resultQueue;
@@ -107,7 +108,14 @@ namespace Client
 		} while( temp != '\n' );
 	}
 
-	int ListMenu( const vector< string > &listToShow, const string &title )
+	void SendJobToSender( const TCPJob &job )
+	{
+		lock_guard<mutex> sendLock( sendMutex );
+
+		sendQueue.push( job );
+	}
+
+	int ListMenu( const vector< string > &listToShow, const string &title, const bool &isFriendList )
 	{
 		int choiceInt = -1;
 
@@ -122,10 +130,25 @@ namespace Client
 			{
 				// ListMenu_MultiPage( listToShow, 0 );
 			}
+			else if( listToShow.size( ) == 0 )
+			{
+				term.MsgPos( "Welp... It looks like you got no friends at all.", Position( 5, 5 ) );
+				term.MsgPos( "SO SAD.", Position( 6, 5 ), Format( FORMAT_BOLD, COLOR_CYAN ) );
+				WaitEnter( Position( 8, 5 ) );
+				return -1;
+			}
 			else
 			{
+#ifdef DEBUG_LIST_MENU
+				term.MsgPos( to_string( listToShow.size( ) ), Position( 5, 60 ) );
+				clog << term;
+#endif
 				for( size_t i = 0; i < listToShow.size( ); ++i )
 				{
+#ifdef DEBUG_LIST_MENU
+					term.MsgPos( to_string( i ) , Position( 6, 60 ) );
+					clog << term;
+#endif
 					term.MsgPos( to_string( i + 1 ) + ( i < 10 ? ".  " : ". " ) + listToShow[ i ], Position( 5 + static_cast<int>( i ), 5 ) );
 				}
 
@@ -207,17 +230,7 @@ namespace Client
 
 		string command = "login " + username + " " + password;
 
-		unique_lock<mutex> sendLock( sendMutex );
-		TCPJob job = TCPJob( command, serverName, serverPort );
-		sendList.push_back( job );
-		sendLock.unlock( );
-		
-		term.Clear( );
-		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
-		term.MsgPos( "< Login >", Position( 3, 5 ) );
-		term.MsgPos( "Logging in...", Position( 5, 5 ) );
-		cout << term;
-
+		SendJobToSender( TCPJob( command, serverName, serverPort ) );
 		usleep( 50000 );
 		
 		bool loginPending = true;
@@ -225,43 +238,44 @@ namespace Client
 
 		while( loginPending )
 		{
-			unique_lock<mutex> resultLock( resultMutex );
-
-			if( not resultQueue.empty( ) )
 			{
-				string &result = resultQueue.front( );
-				
-				if( result == "timeout" )
-				{
-					loginSuccess = false;
-					term.MsgPos( " failed : connection timeout", Position( 5, 18 ) );
-				}
-				else if( result.substr( 0, 2 ) == "WA" )
-				{
-					loginSuccess = false;
-					term.MsgPos( " failed : " + result.substr( 2 ), Position( 5, 18 ) );
-				}
-				else if( result.substr( 0, 2 ) == "AC" )
-				{
-					loginSuccess = true;
-					sessionTokenTobe = result.substr( 3, 16 );
-					term.MsgPos( " success!", Position( 5, 18 ) );
-				}
-				else
-				{
-					loginSuccess = false;
-					term.MsgPos( " failed : unknown error [ " +  result +  " ]" + result.substr( 2 ), Position( 5, 18 ) );
-				}
+				lock_guard<mutex> resultLock( resultMutex );
 
-				cout << term;
+				if( not resultQueue.empty( ) )
+				{
+					string &result = resultQueue.front( );
 
-				loginPending = false;
-				resultQueue.pop( );
+					if( result == "timeout" )
+					{
+						loginSuccess = false;
+						term.MsgPos( " failed : connection timeout", Position( 5, 18 ) );
+					}
+					else if( result.substr( 0, 2 ) == "WA" )
+					{
+						loginSuccess = false;
+						term.MsgPos( " failed : " + result.substr( 2 ), Position( 5, 18 ) );
+					}
+					else if( result.substr( 0, 2 ) == "AC" )
+					{
+						loginSuccess = true;
+						sessionTokenTobe = result.substr( 3, 16 );
+						term.MsgPos( " success!", Position( 5, 18 ) );
+					}
+					else
+					{
+						loginSuccess = false;
+						term.MsgPos( " failed : unknown error [ " + result + " ]" + result.substr( 2 ), Position( 5, 18 ) );
+					}
 
-				WaitEnter( Position( 7, 5 ) );
+					cout << term;
+
+					loginPending = false;
+					resultQueue.pop( );
+
+					WaitEnter( Position( 7, 5 ) );
+				}
 			}
 
-			resultLock.unlock( );
 			usleep( 50000 );
 		}
 
@@ -293,53 +307,45 @@ namespace Client
 
 		string command = "signup " + username + " " + password;
 
-		unique_lock<mutex> sendLock( sendMutex );
-		sendList.push_back( TCPJob( command, serverName, serverPort ) );
-		sendLock.unlock( );
-
-		term.Clear( );
-		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
-		term.MsgPos( "< Register >", Position( 3, 5 ) );
-		term.MsgPos( "Registering...", Position( 5, 5 ) );
-		cout << term;
-
+		SendJobToSender( TCPJob( command, serverName, serverPort ) );
 		usleep( 50000 );
 
 		bool registerPending = true;
 		while( registerPending )
 		{
-			unique_lock< mutex > resultLock( resultMutex );
-
-			if( not resultQueue.empty( ) )
 			{
-				string &result = resultQueue.front( );
+				lock_guard< mutex > resultLock( resultMutex );
 
-				if( result == "timeout" )
+				if( not resultQueue.empty( ) )
 				{
-					term.MsgPos( " failed : connection timeout", Position( 5, 18 ) );
-				}
-				else if( result.substr( 0, 2 ) == "WA" )
-				{
-					term.MsgPos( " failed : " + result.substr( 2 ), Position( 5, 18 ) );
-				}
-				else if( result.substr( 0, 2 ) == "AC" )
-				{
-					term.MsgPos( " success!", Position( 5, 18 ) );
-				}
-				else
-				{
-					term.MsgPos( " failed : unknown error [ " + result + " ]" + result.substr( 2 ), Position( 5, 18 ) );
-				}
+					string &result = resultQueue.front( );
 
-				cout << term;
+					if( result == "timeout" )
+					{
+						term.MsgPos( " failed : connection timeout", Position( 5, 18 ) );
+					}
+					else if( result.substr( 0, 2 ) == "WA" )
+					{
+						term.MsgPos( " failed : " + result.substr( 2 ), Position( 5, 18 ) );
+					}
+					else if( result.substr( 0, 2 ) == "AC" )
+					{
+						term.MsgPos( " success!", Position( 5, 18 ) );
+					}
+					else
+					{
+						term.MsgPos( " failed : unknown error [ " + result + " ]" + result.substr( 2 ), Position( 5, 18 ) );
+					}
 
-				registerPending = false;
-				resultQueue.pop( );
+					cout << term;
 
-				WaitEnter( Position( 7, 5 ) );
+					registerPending = false;
+					resultQueue.pop( );
+
+					WaitEnter( Position( 7, 5 ) );
+				}
 			}
 
-			resultLock.unlock( );
 			usleep( 50000 );
 		}
 	}
@@ -374,39 +380,44 @@ namespace Client
 	{
 		string command = "friends " + sessionToken;
 		
-		unique_lock<mutex> sendLock( sendMutex );
-
-		sendList.push_back( TCPJob( command, serverName, serverPort ) );
-
-		sendLock.unlock( );
+		SendJobToSender( TCPJob( command, serverName, serverPort ) );
+		usleep( 50000 );
 
 		bool friendListPending = true;
 		vector< string > friendList( 0 );
 
 		while( friendListPending )
 		{
-			unique_lock<mutex> resultLock( resultMutex );
-
-			if( not resultQueue.empty( ) )
 			{
-				stringstream resultStream( resultQueue.front( ) );
-				string result;
+				lock_guard<mutex> resultLock( resultMutex );
 
-				resultStream >> result; // get rid of the "AC" msg.
-
-				while( not resultStream.eof( ) )
+				if( not resultQueue.empty( ) )
 				{
-					resultStream >> result;
-					friendList.push_back( result );
-				}
+					stringstream resultStream( resultQueue.front( ) );
+					string result;
 
-				friendListPending = false;
+					resultStream >> result; // get rid of the "AC" msg.
+					resultStream >> result; // and get rid of N.
+
+					while( not resultStream.eof( ) )
+					{
+						resultStream >> result;
+						friendList.push_back( result );
+					}
+
+					resultQueue.pop( );
+					friendListPending = false;
+				}
 			}
 
-			resultLock.unlock( );
+			usleep( 50000 );
 		}
 
-
+		int userChoice = ListMenu( friendList, "< Friend List >" );
+		while( userChoice != -1 )
+		{
+			userChoice = ListMenu( friendList, "< Friend List >" );
+		}
 	}
 
 	void main_login( )
@@ -528,8 +539,10 @@ namespace Client
 
 		while( not exit )
 		{
-			unique_lock<mutex> sendLock( sendMutex );
-			
+			unique_lock<mutex> sendLock( sendMutex, defer_lock );
+			unique_lock<mutex> resultLock( resultMutex, defer_lock );
+			lock( sendLock, resultLock );
+/*
 			while( not sendList.empty( ) )
 			{
 				for( auto it = sendList.begin( ); it != sendList.end( ); ++it )
@@ -551,9 +564,6 @@ namespace Client
 						term.MsgPos( "sender: result = \"" + result + "\"", Position( 24, 5 ) );
 						clog << term;
 #endif
-
-						unique_lock<mutex> resultLock( resultMutex );
-
 						resultQueue.push( result );
 						
 						sendList.erase( it );
@@ -572,9 +582,41 @@ namespace Client
 					}
 				}
 			}
+*/
+			if( not sendQueue.empty( ) )
+			{
+				auto &job = sendQueue.front( );
+				string result = "";
+				bool isTimeout;
+#ifdef DEBUG_SENDER
+				term.MsgPos( "sender: job.TryTCP( ) : \"" + job.command + "\" # " + to_string( job.id ), Position( 20, 5 ) );
+				clog << term << job;
+#endif
+				job.TryTCP( result, isTimeout );
+
+				if( result != "" )
+				{
+#ifdef DEBUG_SENDER
+					term.MsgPos( "sender: result = \"" + result + "\"", Position( 24, 5 ) );
+					clog << term;
+#endif
+					resultQueue.push( result );
+
+					sendQueue.pop( );
+				}
+				else if( isTimeout )
+				{
+#ifdef DEBUG_SENDER
+					term.MsgPos( "sender: timeout # " + to_string( job.id ), Position( 21, 5 ) );
+					clog << term;
+#endif
+					sendQueue.pop( );
+				}
+			}
 
 			sendLock.unlock( );
-			usleep( 618033 );
+			resultLock.unlock( );
+			usleep( 61803 );
 		}
 #ifdef DEBUG_SENDER
 		term.MsgPos( "sender: dude.", Position( 20, 50 ) );

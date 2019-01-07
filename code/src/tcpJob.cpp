@@ -107,8 +107,10 @@ namespace Client
 		}
 	}
 
-	TCPJob::TCPJob( const string &_command, const string &_host, const int _port, const int _timeout, const int _id )
-		:startClock( steady_clock::now( ) ), result( "timeout" ), command( _command ), host( _host ), port( _port ), timeout( _timeout ), id( _id )
+	TCPJob::TCPJob( const string &_command = "", const string &_host = "localhost", const int _port = 7122, const int _timeout, const int _id )
+		:nothingToDo( false ), isHandshaking( false ), isConnected( false ), isSent( false ), infoGiven( false ),
+		startClock( steady_clock::now( ) ), result( "timeout" ),
+		command( _command ), host( _host ), port( _port ), timeout( _timeout ), id( _id )
 	{
 	}
 
