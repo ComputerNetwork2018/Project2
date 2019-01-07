@@ -189,7 +189,6 @@ namespace DataBase
 	{
 		bool TryGetNextMessages(const string &username,const string &message_id,const int desired_count,string &response)
 		{
-			lock_guard<mutex>guard(mutex_global);
 			const auto it=messages.find(message_id);
 			if(it==messages.end())return response="non-existing message_id",false;
 			auto msg=it->second;
@@ -210,7 +209,6 @@ namespace DataBase
 		}
 		bool TryGetPreviousMessages(const string &username,const string &message_id,const int desired_count,string &response)
 		{
-			lock_guard<mutex>guard(mutex_global);
 			const auto it=messages.find(message_id);
 			if(it==messages.end())return response="non-existing message_id",false;
 			auto msg=it->second;
