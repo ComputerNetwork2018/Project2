@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <sstream>
 #include <vector>
@@ -95,6 +96,24 @@ namespace Client
 		return false;
 	}
 
+	bool CharacterValid( const char &c )
+	{
+		return ( ( c >= 'a' and c <= 'z' ) or ( c >= 'A' and c <= 'Z' ) or ( c >= '0' and c <= '9' ) or c == '_' );
+	}
+
+	bool UsernameValid( const string &username )
+	{
+		for( auto i : username )
+		{
+			if( not CharacterValid( i ) )
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
 	void WaitEnter( const Position &pos = Position( ), const Format &format = Format( ), const string &msg = "press ENTER to contunue." )
 	{
 		term.MsgPos( msg, pos, format );
@@ -108,6 +127,17 @@ namespace Client
 		} while( temp != '\n' );
 	}
 
+	void ConnectionTimeout( int bottomColumn = 10 )
+	{
+		term.Clear( );
+		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
+		term.MsgPos( "< Main Menu >", Position( 3, 5 ) );
+		term.MsgPos( "Connection timeout.", Position( 5, 5 ), Format( FORMAT_BOLD, COLOR_YELLOW ) );
+		cout << term;
+
+		WaitEnter( Position( bottomColumn, 5 ) );
+	}
+
 	void SendJobToSender( const TCPJob &job )
 	{
 		lock_guard<mutex> sendLock( sendMutex );
@@ -115,9 +145,29 @@ namespace Client
 		sendQueue.push( job );
 	}
 
-	int ListMenu( const vector< string > &listToShow, const string &title, const bool &isFriendList )
+	int ListMenu( const vector< string > &listToShow, const string &listType = "" )
 	{
 		int choiceInt = -1;
+
+		string title, emptyMsg[ 2 ];
+		if( listType == "friends" )
+		{
+			title = "< Friend List >";
+			emptyMsg[ 0 ] = "Welp... It looks like you got no friends at all.";
+			emptyMsg[ 1 ] = "SO SAD.";
+		}
+		else if( listType == "online_users" )
+		{
+			title = "< Online User List >";
+			emptyMsg[ 0 ] = "Welp... It look like there is nobody online.";
+			emptyMsg[ 1 ] = "WHOOPS.";
+		}
+		else
+		{
+			title = "< Santa's Gift List >";
+			emptyMsg[ 0 ] = "You";
+			emptyMsg[ 1 ] = "MERRY MAS AND A HAPPY NEW YEAR! HO, HO, HO!";
+		}
 
 		while( choiceInt == -1 )
 		{
@@ -132,23 +182,18 @@ namespace Client
 			}
 			else if( listToShow.size( ) == 0 )
 			{
-				term.MsgPos( "Welp... It looks like you got no friends at all.", Position( 5, 5 ) );
-				term.MsgPos( "SO SAD.", Position( 6, 5 ), Format( FORMAT_BOLD, COLOR_CYAN ) );
-				WaitEnter( Position( 8, 5 ) );
+				term.MsgPos( emptyMsg[ 0 ], Position( 5, 5 ) );
+				term.MsgPos( emptyMsg[ 1 ], Position( 6, 5 ), Format( FORMAT_BOLD, COLOR_RED ) );
+
+				term.MsgPos( "Oh, maybe you're just offline.", Position( 8, 5 ) );
+
+				WaitEnter( Position( 10, 5 ) );
 				return -1;
 			}
 			else
 			{
-#ifdef DEBUG_LIST_MENU
-				term.MsgPos( to_string( listToShow.size( ) ), Position( 5, 60 ) );
-				clog << term;
-#endif
 				for( size_t i = 0; i < listToShow.size( ); ++i )
 				{
-#ifdef DEBUG_LIST_MENU
-					term.MsgPos( to_string( i ) , Position( 6, 60 ) );
-					clog << term;
-#endif
 					term.MsgPos( to_string( i + 1 ) + ( i < 10 ? ".  " : ". " ) + listToShow[ i ], Position( 5 + static_cast<int>( i ), 5 ) );
 				}
 
@@ -287,13 +332,23 @@ namespace Client
 		term.Clear( );
 		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
 		term.MsgPos( "< Register >", Position( 3, 5 ) );
+		term.MsgPos( "Format: [0-9a-zA-Z_]*, length is not limited.", Position( 6, 5 ) );
 		term.MsgPos( "Username: ", Position( 5, 5 ) );
 		cout << term;
 
 		string username;
 		cin >> username;
 
-		term.MsgPos( "Password: ", Position( 6, 5 ) );
+		while( not UsernameValid( username ) )
+		{
+			term.MsgPos( "Format: [0-9a-zA-Z_]*, length is not limited.", Position( 6, 5 ) );
+			term.MsgPos( "Username: ", Position( 5, 5 ) );
+			cout << term;
+
+			cin >> username;
+		}
+
+		term.MsgPos( "Password: ", Position( 7, 5 ) );
 		cout << term;
 
 		string password;
@@ -334,7 +389,7 @@ namespace Client
 					}
 					else
 					{
-						term.MsgPos( " failed : unknown error [ " + result + " ]" + result.substr( 2 ), Position( 5, 18 ) );
+						term.MsgPos( " failed : unknown error [" + result + " ]" + result.substr( 2 ), Position( 5, 18 ) );
 					}
 
 					cout << term;
@@ -352,11 +407,19 @@ namespace Client
 
 	int Menu_Login( )
 	{
+		vector< bool > randomizer( 100, false );
+		randomizer[ 50 ] = true;
+		random_shuffle( randomizer.begin( ), randomizer.end( ) );
+
 		term.Clear( );
 		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
 		term.MsgPos( "< Main Menu >", Position( 3, 5 ) );
 		term.MsgPos( "1. Friend List", Position( 4, 5 ) );
 		term.MsgPos( "2. Online User List", Position( 5, 5 ) );
+		if( randomizer[ 0 ] )
+		{
+			term.MsgPos( "5. Santa's Gift List", Position( 8, 5 ), Format( FORMAT_BOLD, COLOR_RED ) );
+		}
 		term.MsgPos( "9. Logout", Position( 12, 5 ) );
 		term.MsgPos( "<Num> <Enter> to choose an option: ", Position( 14, 1 ) );
 		cout << term;
@@ -365,8 +428,19 @@ namespace Client
 		cin >> userChoice;
 
 		int choiceInt;
-
-		if( stoiList( userChoice, choiceInt, { 1, 2, 9 } ) )
+		
+		if( randomizer[ 0 ] )
+		{
+			if( stoiList( userChoice, choiceInt, { 1, 2, 5, 9 } ) )
+			{
+				return choiceInt;
+			}
+			else
+			{
+				return -1;
+			}
+		}
+		else if( stoiList( userChoice, choiceInt, { 1, 2, 9 } ) )
 		{
 			return choiceInt;
 		}
@@ -376,17 +450,115 @@ namespace Client
 		}
 	}
 
-	void FriendList( )
+	void main_chat( const string &partnerUsername )
 	{
-		string command = "friends " + sessionToken;
+		string command = "last_message " + sessionToken + " " + partnerUsername;
+
+		SendJobToSender( TCPJob( command, serverName, serverPort ) );
+		usleep( 50000 );
+
+		string rootMsgId = "";
+		bool msgIdPending = true;
+
+		while( msgIdPending )
+		{
+			{
+				lock_guard<mutex> resultLock( resultMutex );
+
+				if( not resultQueue.empty( ) )
+				{
+					string &result = resultQueue.front( );
+					
+					if( result == "timeout" )
+					{
+						ConnectionTimeout( 14 );
+						break;
+					}
+					else if( result.substr( 0, 2 ) == "AC" )
+					{
+						if( result == "AC" )
+						{
+							rootMsgId = "";
+						}
+						else
+						{
+							rootMsgId = result.substr( 3, 16 );
+						}
+					}
+
+					resultQueue.pop( );
+					msgIdPending = false;
+				}
+			}
+
+			usleep( 50000 );
+		}
+
+		deque< string > msgCache;
+
+		term.Clear( );
+		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
+		term.MsgPos( "< Chat: " + partnerUsername + " >", Position( 3, 5 ) );
+		term.MsgPos( "> ", Position( 20, 5 ) );
+
+		if( rootMsgId != "" ) // not a new conversation, request older msgs
+		{
+			command = "prev_messages " + sessionToken + " " + rootMsgId + " 14";
+			SendJobToSender( TCPJob( command, serverName, serverPort ) );
+			usleep( 50000 );
+
+			bool msgsPending = true;
+			while( msgsPending )
+			{
+				{
+					lock_guard<mutex> resultLock( resultMutex );
+
+					if( not resultQueue.empty( ) )
+					{
+						stringstream resultStream( resultQueue.front( ) );
+						string result;
+
+						if( result == "timeout" )
+						{
+							ConnectionTimeout( 20 );
+							break;
+						}
+						
+						resultStream >> result; // get rid of the "AC" msg.
+						resultStream >> result; // and get rif of N.
+
+						while( not resultStream.eof( ) )
+						{
+							resultStream >> result;
+							msgCache.push_back( result );
+						}
+
+						resultQueue.pop( );
+						msgsPending = false;
+					}
+				}
+
+				usleep( 50000 );
+			}
+		}
+
+		for( int i = msgCache.size( ) - 1; i >= 0; --i )
+		{
+			term.MsgPos( msgCache[ i ], Position( 18 - msgCache.size( ) + i ) );
+		}
+	}
+
+	void ShowList( const string &listType = "" )
+	{
+		string command = ( listType == "" ? "friends" : listType ) + " " + sessionToken;
 		
 		SendJobToSender( TCPJob( command, serverName, serverPort ) );
 		usleep( 50000 );
 
-		bool friendListPending = true;
-		vector< string > friendList( 0 );
+		bool listPending = true;
+		vector< string > list( 0 );
 
-		while( friendListPending )
+		while( listPending )
 		{
 			{
 				lock_guard<mutex> resultLock( resultMutex );
@@ -396,27 +568,35 @@ namespace Client
 					stringstream resultStream( resultQueue.front( ) );
 					string result;
 
+					if( result == "timeout" )
+					{
+						ConnectionTimeout( 14 );
+						break;
+					}
+
 					resultStream >> result; // get rid of the "AC" msg.
 					resultStream >> result; // and get rid of N.
 
 					while( not resultStream.eof( ) )
 					{
 						resultStream >> result;
-						friendList.push_back( result );
+						list.push_back( result );
 					}
 
 					resultQueue.pop( );
-					friendListPending = false;
+					listPending = false;
 				}
 			}
 
 			usleep( 50000 );
 		}
 
-		int userChoice = ListMenu( friendList, "< Friend List >" );
-		while( userChoice != -1 )
+		int choiceInt = ListMenu( list, listType );
+		while( choiceInt != -1 )
 		{
-			userChoice = ListMenu( friendList, "< Friend List >" );
+			choiceInt = ListMenu( list, listType );
+			string partnerUsername = list[ choiceInt - 1 ];
+			main_chat( partnerUsername );
 		}
 	}
 
@@ -427,19 +607,23 @@ namespace Client
 
 		while( login )
 		{
-			int userChoice = Menu_Login( ); // 1 = friend list, 2 = online list, 9 = logout
+			int userChoice = Menu_Login( ); // 1 = friend list, 2 = online list, 5 = santa's gift lift, 9 = logout
 
 			switch( userChoice )
 			{
 				case 1:
 				{
-					FriendList( );
+					ShowList( "friends" );
 					break;
 				}
 				case 2:
 				{
-					// OnlineList( );
+					ShowList( "online_users" );
 					break;
+				}
+				case 5:
+				{
+					ShowList( );
 				}
 				case 9:
 				{
