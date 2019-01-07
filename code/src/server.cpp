@@ -52,7 +52,7 @@ namespace DataBase
 		{
 			const int len = 16;
 			string ans = "";
-			for( int i = 0; i<len; i++ )
+			for( int i = 0; i < len; i++ )
 			{
 				const unsigned v = (unsigned) Rand( ) & 0xf;
 				if( v <= 9 )ans.push_back( (char) ( '0' + v ) );
@@ -62,7 +62,7 @@ namespace DataBase
 			return ans;
 		}
 		map<string, string>usernames;// username, password
-		map<string, string>session_tokens;// session_token, username
+		map<string, pair<string, time_point<steady_clock>>>session_tokens;// session_token, (username, last_online)
 		map<string, set<string>>friends;// username, friends
 		map<string, Message>messages;// message_id, message_content
 		map<pair<string, string>, string>last_message;// <user1, user2>, message_id
@@ -76,7 +76,7 @@ namespace DataBase
 		}
 		map<pair<string, string>, string>::iterator GetLastMessage( const string &user1, const string &user2 )
 		{
-			if( user1>user2 )return GetLastMessage( user2, user1 );
+			if( user1 > user2 )return GetLastMessage( user2, user1 );
 			const auto &key = make_pair( user1, user2 );
 			return last_message.find( key );
 		}
@@ -110,7 +110,12 @@ namespace DataBase
 		{
 			const auto it = session_tokens.find( session_token );
 			if( it == session_tokens.end( ) )return false;
-			return username = it->second, true;
+			it->second.second = steady_clock::now( );
+			return username = it->second.first, true;
+		}
+		double TimeBetween( const time_point<steady_clock>&time_sooner, const time_point<steady_clock>&time_latter = steady_clock::now( ) )
+		{
+			return (double) ( duration_cast<microseconds>( time_latter - time_sooner ).count( ) / 1000 );
 		}
 	}
 	mutex mutex_global;
@@ -128,7 +133,7 @@ namespace DataBase
 		if( it == usernames.end( ) )return response = "user \"" + username + "\" not existed", false;
 		if( it->second != password )return response = "wrong password", false;
 		const string &token = generate_token( );
-		session_tokens[ token ] = username;
+		session_tokens[ token ] = make_pair( username, steady_clock::now( ) );
 		return response = token, true;
 	}
 	bool TryGetOnlineUsers( const string &session_token, string &response )
@@ -137,7 +142,7 @@ namespace DataBase
 		string username;
 		if( !TryGetUsername( session_token, username ) )return response = "invalid session_token", false;
 		vector<string>ans;
-		for( const auto p : session_tokens )if( p.first != session_token )ans.push_back( p.second );
+		for( const auto p : session_tokens )if( p.second.first != username )ans.push_back( p.second.first );
 		response = to_string( ans.size( ) );
 		for( const string &name : ans )response += " " + name;
 		return true;
@@ -211,7 +216,7 @@ namespace DataBase
 			auto msg = it->second;
 			if( !msg.belong_to( username ) )return response = "permission denied", false;
 			vector<string>ans;
-			for( int i = 0; i<desired_count; i++ )
+			for( int i = 0; i < desired_count; i++ )
 			{
 				assert( msg.belong_to( username ) );
 				const string &next_id = msg.GetNext( );
@@ -232,7 +237,7 @@ namespace DataBase
 			auto msg = it->second;
 			if( !msg.belong_to( username ) )return response = "permission denied", false;
 			vector<string>ans;
-			for( int i = 0; i<desired_count; i++ )
+			for( int i = 0; i < desired_count; i++ )
 			{
 				assert( msg.belong_to( username ) );
 				const string &prev_id = msg.GetPrev( );
@@ -260,7 +265,7 @@ namespace DataBase
 		{
 			return response = "desired_count isn't a number", false;
 		}
-		if( n<1 || n>100 )return response = "supported range of desired_count is 1~100, got " + to_string( n ), false;
+		if( n < 1 || n>100 )return response = "supported range of desired_count is 1~100, got " + to_string( n ), false;
 		return TryGetNextMessages( username, message_id, n, response );
 	}
 	bool TryGetPreviousMessages( const string &session_token, const string &message_id, const string &desired_count, string &response )
@@ -277,8 +282,17 @@ namespace DataBase
 		{
 			return response = "desired_count isn't a number", false;
 		}
-		if( n<1 || n>100 )return response = "supported range of desired_count is 1~100, got " + to_string( n ), false;
+		if( n < 1 || n>100 )return response = "supported range of desired_count is 1~100, got " + to_string( n ), false;
 		return TryGetPreviousMessages( username, message_id, n, response );
+	}
+	bool TryOnlineCheck( const string &session_token, const string &name, string &response )
+	{
+		lock_guard<mutex>guard( mutex_global );
+		string username;
+		if( !TryGetUsername( session_token, username ) )return response = "invalid session_token", false;
+		if( !IsUserExists( name ) )return response = "user \"" + name + "\" not exists", false;
+		for( const auto p : session_tokens )if( p.second.first == name && TimeBetween( p.second.second ) < 1000 * 60 )return response = "online", true;
+		return response = "offline", true;
 	}
 	namespace
 	{
@@ -297,7 +311,7 @@ namespace DataBase
 				file_request_status[ receiver_name ] = "=====requested=====";
 			}
 			//////////////////////////// cerr<<"2. sender waits for receiver to admit the request. HOW: watch file_request_status"<<endl;
-			for( const auto start_clock = steady_clock::now( ); ( duration_cast<microseconds>( steady_clock::now( ) - start_clock ).count( ) / 1000 )<1000 * 5;) // wait for 5 seconds
+			for( const auto start_clock = steady_clock::now( ); TimeBetween( start_clock ) < 1000 * 5;) // wait for 5 seconds
 			{
 				usleep( 1 );
 				lock_guard<mutex>guard( mutex_global );
@@ -337,7 +351,7 @@ namespace DataBase
 		{
 			return response = "file_size isn't a number", false;
 		}
-		if( n<0 || n>1000000000 )return response = "supported range of file_size is 0~1000000000, got " + to_string( n ), false;
+		if( n < 0 || n>1000000000 )return response = "supported range of file_size is 0~1000000000, got " + to_string( n ), false;
 		// below function must implement thread-safety
 		return TryFileRequest( username, receiver_name, n, response );
 	}
@@ -362,7 +376,7 @@ namespace DataBase
 		}
 		string file_id;
 		//////////////////////////// cerr<<"6. receiver waits for file_id to be generated. HOW: watch file_request_status until changed into file_id"<<endl;
-		for( const auto start_clock = steady_clock::now( ); ( duration_cast<microseconds>( steady_clock::now( ) - start_clock ).count( ) / 1000 )<1000 * 5;) // wait for 5 seconds
+		for( const auto start_clock = steady_clock::now( ); TimeBetween( start_clock ) < 1000 * 5;) // wait for 5 seconds
 		{
 			usleep( 1 );
 			lock_guard<mutex>guard( mutex_global );
@@ -391,7 +405,7 @@ namespace DataBase
 		}
 
 		////////////////////////////////// 9. sender waits for the file to be admitted. HOW: watch file_id to be removed
-		for( const auto start_clock = steady_clock::now( ); ( duration_cast<microseconds>( steady_clock::now( ) - start_clock ).count( ) / 1000 )<1000 * 5;) // wait for 5 seconds
+		for( const auto start_clock = steady_clock::now( ); TimeBetween( start_clock ) < 1000 * 5;) // wait for 5 seconds
 		{
 			usleep( 1 );
 			lock_guard<mutex>guard( mutex_global );
@@ -416,7 +430,7 @@ namespace DataBase
 		}
 		string file_content;
 		//////////////////////////////// 10. receiver waits for the file associated with its file_id to be put up. HOW: watch file_contents to appear 
-		for( const auto start_clock = steady_clock::now( ); ( duration_cast<microseconds>( steady_clock::now( ) - start_clock ).count( ) / 1000 )<1000 * 5;) // wait for 5 seconds
+		for( const auto start_clock = steady_clock::now( ); TimeBetween( start_clock ) < 1000 * 5;) // wait for 5 seconds
 		{
 			usleep( 1 );
 			lock_guard<mutex>guard( mutex_global );
@@ -486,35 +500,65 @@ bool ProcessMessage( const string &msg, string &response )
 							if( title == "get_message" )
 							{
 								if( args.size( ) != 3 )return response = "get_message expect 3 params, got " + to_string( args.size( ) ), false;
-								return DataBase::TryGetMessage( args[ 1 ], args[ 2 ], response );
+								if( DataBase::TryGetMessage( args[ 1 ], args[ 2 ], response ) )
+								{
+									response = "get " + response;
+									return true;
+								}
+
+								return false;
 							}
 							else
 								// “send_message <session_token> <partner username> <message>”
 								if( title == "send_message" )
 								{
 									if( args.size( ) != 4 )return response = "send_message expect 4 params, got " + to_string( args.size( ) ), false;
-									return DataBase::TrySendMessage( args[ 1 ], args[ 2 ], args[ 3 ], response );
+									if( DataBase::TrySendMessage( args[ 1 ], args[ 2 ], args[ 3 ], response ) )
+									{
+										response = "send " + response;
+										return true;
+									}
+
+									return false;
 								}
 								else
 									// “last_message <session_token> <partner username>”
 									if( title == "last_message" )
 									{
 										if( args.size( ) != 3 )return response = "last_message expect 3 params, got " + to_string( args.size( ) ), false;
-										return DataBase::TryGetLastMessage( args[ 1 ], args[ 2 ], response );
+										if( DataBase::TryGetLastMessage( args[ 1 ], args[ 2 ], response ) )
+										{
+											response = "last " + response;
+											return true;
+										}
+
+										return false;
 									}
 									else
 										// “next_messages <session_token> <message_id> <desired number of messages to get>”
 										if( title == "next_messages" )
 										{
 											if( args.size( ) != 4 )return response = "next_messages expect 4 params, got " + to_string( args.size( ) ), false;
-											return DataBase::TryGetNextMessages( args[ 1 ], args[ 2 ], args[ 3 ], response );
+											if( DataBase::TryGetNextMessages( args[ 1 ], args[ 2 ], args[ 3 ], response ) )
+											{
+												response = "next " + response;
+												return true;
+											}
+
+											return false;
 										}
 										else
 											// “prev_messages <session_token> <message_id> <desired number of messages to get>”
 											if( title == "prev_messages" )
 											{
 												if( args.size( ) != 4 )return response = "prev_messages expect 4 params, got " + to_string( args.size( ) ), false;
-												return DataBase::TryGetPreviousMessages( args[ 1 ], args[ 2 ], args[ 3 ], response );
+												if( DataBase::TryGetPreviousMessages( args[ 1 ], args[ 2 ], args[ 3 ], response ) )
+												{
+													response = "prev " + response;
+													return true;
+												}
+
+												return false;
 											}
 											else
 												// “file_request <session_id> <receiver username> <file_size>”
@@ -534,9 +578,9 @@ bool ProcessMessage( const string &msg, string &response )
 														// “send_file <session_id> <file_id> <entire file content>”
 														if( title == "send_file" )
 														{
-															if( args.size( )<4 )return response = "send_file expect 4 params, got " + to_string( args.size( ) ), false;
+															if( args.size( ) < 4 )return response = "send_file expect 4 params, got " + to_string( args.size( ) ), false;
 															string file_content = args[ 3 ];
-															for( int i = 4; i<(int) args.size( ); i++ )file_content += " " + args[ i ];
+															for( int i = 4; i < (int) args.size( ); i++ )file_content += " " + args[ i ];
 															return DataBase::TrySendFile( args[ 1 ], args[ 2 ], file_content, response );
 														}
 														else
@@ -547,9 +591,16 @@ bool ProcessMessage( const string &msg, string &response )
 																return DataBase::TryReceiveFile( args[ 1 ], args[ 2 ], response );
 															}
 															else
-															{
-																return response = "unrecognized command: " + title, false;
-															}
+																// "online_check <session token> <username>"
+																if( title == "online_check" )
+																{
+																	if( args.size( ) != 3 )return response = "online_check expect 3 params, got " + to_string( args.size( ) ), false;
+																	return DataBase::TryOnlineCheck( args[ 1 ], args[ 2 ], response );
+																}
+																else
+																{
+																	return response = "unrecognized command: " + title, false;
+																}
 }
 vector<int>SelectRead( const map<int, string>&fds )
 {
@@ -604,7 +655,12 @@ int main( int argc, char *argv[ ] )
 			{
 				{
 					lock_guard<mutex>guard( mutex_client_fds );
+#ifdef DEBUG
 					cout << "recv from " << client_fds[ fd ] << " : \"" << msg << "\"" << endl;
+#else
+					cout << "recv from " << client_fds[ fd ] << endl;
+#endif
+
 				}
 				// call thread constructor to execute in background
 				// call thread.detach() to allow safe destruction while still executing in background
@@ -613,7 +669,9 @@ int main( int argc, char *argv[ ] )
 					string response = "";
 					string to_send = ProcessMessage( _msg, response ) ? "AC" : "WA";
 					if( response != "" )to_send += " " + response;
-					cout << "send back : \"" << to_send << "\"" << endl;
+#ifdef DEBUG
+					cout << "send back \"" << to_send << "\"" << endl;
+#endif
 					bool err;
 					if( !send_string( _fd, to_send, err ) )cerr << "send error" << endl;
 					close( _fd );

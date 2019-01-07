@@ -20,7 +20,7 @@
 #define DEBUG_MAIN
 #define DEBUG_LOGIN
 // #define DEBUG_SENDER
-#define DEBUG_CHAT_MGR
+#define DEBUG_CHAT
 #define DEBUG_LIST_MENU
 
 #endif
@@ -772,7 +772,17 @@ namespace Client
 				if( not resultQueue.empty( ) )
 				{
 					string &result = resultQueue.front( );
-
+#ifdef DEBUG_CHAT
+					if( result.substr( 0, 2 ) == "AC" and result.substr( 3, 4 ) == "send" )
+					{
+						term.MsgPos( "getMsgs : " + result, Position( 41, 5 ) );
+					}
+					else
+					{
+						term.MsgPos( "getMsgs : " + result, Position( 40, 5 ) );
+					}
+					cout << term;
+#endif
 					if( result == "timeout" )
 					{
 						ConnectionTimeout( 20 );
@@ -780,15 +790,21 @@ namespace Client
 					}
 					else if( result.substr( 0, 2 ) == "AC" )
 					{
-						if( result == "AC" )
+						if( result.substr( 3, 4 ) == "send" )
+						{
+							resultQueue.pop( );
+							continue;
+						}
+						else if( result.substr( 3 ) == "last " )
 						{
 							rootMsgId = "";
 						}
 						else
 						{
-							rootMsgId = result.substr( 3, 16 );
+							rootMsgId = result.substr( 8, 16 );
 						}
 
+						resultQueue.pop( );
 						return true;
 					}
 
@@ -825,24 +841,45 @@ namespace Client
 				{
 					stringstream resultStream( resultQueue.front( ) );
 					string result;
-
+#ifdef DEBUG_CHAT
+					if( result.substr( 0, 2 ) == "AC" and result.substr( 3, 4 ) == "send" )
+					{
+						term.MsgPos( "getMsgs : " + result, Position( 41, 5 ) );
+					}
+					else
+					{
+						term.MsgPos( "getMsgs : " + result, Position( 40, 5 ) );
+					}
+					cout << term;
+#endif
 					if( result == "timeout" )
 					{
 						ConnectionTimeout( 20 );
 						break;
 					}
-
-					resultStream >> result; // get rid of the "AC" msg.
-					resultStream >> result; // and get rif of N.
-
-					while( not resultStream.eof( ) )
+					else if( result.substr( 0, 2 ) == "AC" )
 					{
-						resultStream >> result;
-						msgCache.push_back( result );
-					}
+						if( result.substr( 3, 4 ) == "send" )
+						{
+							resultQueue.pop( );
+							continue;
+						}
+						else
+						{
+							resultStream >> result; // get rid of the "AC" msg.
+							resultStream >> result; // get rid of the "prev"/"next" msg;
+							resultStream >> result; // and get rif of N.
 
-					resultQueue.pop( );
-					return true;
+							while( not resultStream.eof( ) )
+							{
+								resultStream >> result;
+								msgCache.push_back( result );
+							}
+
+							resultQueue.pop( );
+							return true;
+						}
+					}
 				}
 			}
 
