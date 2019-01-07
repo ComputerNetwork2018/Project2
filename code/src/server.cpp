@@ -604,7 +604,7 @@ int main( int argc, char *argv[ ] )
 			{
 				{
 					lock_guard<mutex>guard( mutex_client_fds );
-					cout << "recv from " << client_fds[ fd ] << endl;
+					cout << "recv from " << client_fds[ fd ] << " : \"" << msg << "\"" << endl;
 				}
 				// call thread constructor to execute in background
 				// call thread.detach() to allow safe destruction while still executing in background
@@ -613,6 +613,7 @@ int main( int argc, char *argv[ ] )
 					string response = "";
 					string to_send = ProcessMessage( _msg, response ) ? "AC" : "WA";
 					if( response != "" )to_send += " " + response;
+					cout << "send back : \"" << to_send << "\"" << endl;
 					bool err;
 					if( !send_string( _fd, to_send, err ) )cerr << "send error" << endl;
 					close( _fd );

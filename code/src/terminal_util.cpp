@@ -22,10 +22,9 @@ void Terminal_Util::Fill( const class Position &from, const class Position &to, 
 
 	for( int i = from.Row( ); i <= to.Row( ); ++i )
 	{
-		Position( ::Position( i, from.Col( ) ) );
-
 		for( int j = from.Col( ); j <= to.Col( ); ++j )
 		{
+			Position( ::Position( i, j ) );
 			__output << character;
 		}
 	}
@@ -47,6 +46,8 @@ stringstream& Terminal_Util::OSStream( )
 
 ostream& operator<< ( ostream &output, Terminal_Util &terminalUtil )
 {
+	lock_guard<mutex> outputLock( terminalUtil.outputMutex );
+
 	output << terminalUtil.OSStream( ).rdbuf( ) << flush;
 	terminalUtil.OSStream( ) = stringstream( );
 

@@ -19,7 +19,8 @@
 
 #define DEBUG_MAIN
 #define DEBUG_LOGIN
-#define DEBUG_SENDER
+// #define DEBUG_SENDER
+#define DEBUG_CHAT_MGR
 #define DEBUG_LIST_MENU
 
 #endif
@@ -36,7 +37,7 @@ namespace Client
 
 	Terminal_Util term;
 
-	// thread & inter-thread communication
+	// sender thread & main-sender communication
 	void tcpSender( );
 	bool exit;
 
@@ -45,6 +46,11 @@ namespace Client
 
 	mutex resultMutex;
 	queue<string> resultQueue;
+
+	// chat manager thread
+	void chatManager( );
+	bool chatting;
+	string partnerUsername;
 
 	// login variables
 	bool login = false;
@@ -200,18 +206,18 @@ namespace Client
 				cout << term;
 			}
 
-			term.MsgPos( "User to chat:     ( e to exit )", Position( 6 + static_cast<int>( listToShow.size( ) ), 5 ) );
+			term.MsgPos( "User to chat:     ( q to exit )", Position( 6 + static_cast<int>( listToShow.size( ) ), 5 ) );
 			term.MsgPos( "", Position( 6 + static_cast<int>( listToShow.size( ) ), 20 ) );
 			cout << term;
 
 			string userChoice;
 			cin >> userChoice;
 
-			if( userChoice == "e" )
+			if( userChoice == "q" )
 			{
 				return -1;
 			}
-			else if( stoiRange( userChoice, choiceInt, 1, static_cast< int >( listToShow.size( ) ) ) )
+			else if( stoiRange( userChoice, choiceInt, 1, static_cast<int>( listToShow.size( ) ) ) )
 			{
 				return choiceInt;
 			}
@@ -231,16 +237,20 @@ namespace Client
 		term.MsgPos( "< Main Menu >", Position( 3, 5 ) );
 		term.MsgPos( "1. Login", Position( 4, 5 ) );
 		term.MsgPos( "2. Register", Position( 5, 5 ) );
-		term.MsgPos( "9. Exit", Position( 12, 5 ) );
-		term.MsgPos( "<Num> <ENTER> to choose an option: ", Position( 14, 1 ) );
+		term.MsgPos( "q. Exit", Position( 14, 5 ) );
+		term.MsgPos( "<Num> <ENTER> to choose an option: ", Position( 16, 1 ) );
 		cout << term;
 
 		string userChoice;
 		cin >> userChoice;
 
 		int choiceInt;
-		
-		if( stoiList( userChoice, choiceInt, { 1, 2, 9 } ) )
+
+		if( userChoice == "q" )
+		{
+			return 10;
+		}
+		else if( stoiList( userChoice, choiceInt, { 1, 2 } ) )
 		{
 			return choiceInt;
 		}
@@ -257,7 +267,7 @@ namespace Client
 		term.MsgPos( "< Login >", Position( 3, 5 ) );
 		term.MsgPos( "Username: ", Position( 5, 5 ) );
 		cout << term;
-		
+
 		string username;
 		cin >> username;
 
@@ -277,7 +287,7 @@ namespace Client
 
 		SendJobToSender( TCPJob( command, serverName, serverPort ) );
 		usleep( 50000 );
-		
+
 		bool loginPending = true;
 		bool loginSuccess = false;
 
@@ -420,18 +430,22 @@ namespace Client
 		{
 			term.MsgPos( "5. Santa's Gift List", Position( 8, 5 ), Format( FORMAT_BOLD, COLOR_RED ) );
 		}
-		term.MsgPos( "9. Logout", Position( 12, 5 ) );
-		term.MsgPos( "<Num> <Enter> to choose an option: ", Position( 14, 1 ) );
+		term.MsgPos( "q. Logout", Position( 14, 5 ) );
+		term.MsgPos( "<Num> <Enter> to choose an option: ", Position( 16, 1 ) );
 		cout << term;
 
 		string userChoice;
 		cin >> userChoice;
 
 		int choiceInt;
-		
-		if( randomizer[ 0 ] )
+
+		if( userChoice == "q" )
 		{
-			if( stoiList( userChoice, choiceInt, { 1, 2, 5, 9 } ) )
+			return 10;
+		}
+		else if( randomizer[ 0 ] )
+		{
+			if( stoiList( userChoice, choiceInt, { 1, 2, 5 } ) )
 			{
 				return choiceInt;
 			}
@@ -440,7 +454,7 @@ namespace Client
 				return -1;
 			}
 		}
-		else if( stoiList( userChoice, choiceInt, { 1, 2, 9 } ) )
+		else if( stoiList( userChoice, choiceInt, { 1, 2 } ) )
 		{
 			return choiceInt;
 		}
@@ -450,108 +464,43 @@ namespace Client
 		}
 	}
 
-	void main_chat( const string &partnerUsername )
+	void main_chat( )
 	{
-		string command = "last_message " + sessionToken + " " + partnerUsername;
+		chatting = true;
 
-		SendJobToSender( TCPJob( command, serverName, serverPort ) );
-		usleep( 50000 );
+		thread chatMgr( chatManager );
 
-		string rootMsgId = "";
-		bool msgIdPending = true;
+		term.Fill( Position( 20, 0 ), Position( 21, 300 ), Format( ), ' ' );
+		cout << term;
 
-		while( msgIdPending )
-		{
-			{
-				lock_guard<mutex> resultLock( resultMutex );
-
-				if( not resultQueue.empty( ) )
-				{
-					string &result = resultQueue.front( );
-					
-					if( result == "timeout" )
-					{
-						ConnectionTimeout( 14 );
-						break;
-					}
-					else if( result.substr( 0, 2 ) == "AC" )
-					{
-						if( result == "AC" )
-						{
-							rootMsgId = "";
-						}
-						else
-						{
-							rootMsgId = result.substr( 3, 16 );
-						}
-					}
-
-					resultQueue.pop( );
-					msgIdPending = false;
-				}
-			}
-
-			usleep( 50000 );
-		}
-
-		deque< string > msgCache;
-
-		term.Clear( );
-		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
-		term.MsgPos( "< Chat: " + partnerUsername + " >", Position( 3, 5 ) );
 		term.MsgPos( "> ", Position( 20, 5 ) );
+		term.MsgPos( "Type \"/q\" (without quotation mark) in to quit.", Position( 22, 5 ) );
+		cout << term;
 
-		if( rootMsgId != "" ) // not a new conversation, request older msgs
+		string msg;
+		cin >> msg;
+
+		while( msg != "/q" )
 		{
-			command = "prev_messages " + sessionToken + " " + rootMsgId + " 14";
+			string command = "send_message " + sessionToken + " " + partnerUsername + " " + msg;
+
 			SendJobToSender( TCPJob( command, serverName, serverPort ) );
 			usleep( 50000 );
 
-			bool msgsPending = true;
-			while( msgsPending )
-			{
-				{
-					lock_guard<mutex> resultLock( resultMutex );
-
-					if( not resultQueue.empty( ) )
-					{
-						stringstream resultStream( resultQueue.front( ) );
-						string result;
-
-						if( result == "timeout" )
-						{
-							ConnectionTimeout( 20 );
-							break;
-						}
-						
-						resultStream >> result; // get rid of the "AC" msg.
-						resultStream >> result; // and get rif of N.
-
-						while( not resultStream.eof( ) )
-						{
-							resultStream >> result;
-							msgCache.push_back( result );
-						}
-
-						resultQueue.pop( );
-						msgsPending = false;
-					}
-				}
-
-				usleep( 50000 );
-			}
+			term.MsgPos( "> ", Position( 20, 5 ) );
+			cout << term;
+			cin >> msg;
 		}
+		
+		chatting = false;
 
-		for( int i = msgCache.size( ) - 1; i >= 0; --i )
-		{
-			term.MsgPos( msgCache[ i ], Position( 18 - msgCache.size( ) + i ) );
-		}
+		chatMgr.join( );
 	}
 
 	void ShowList( const string &listType = "" )
 	{
 		string command = ( listType == "" ? "friends" : listType ) + " " + sessionToken;
-		
+
 		SendJobToSender( TCPJob( command, serverName, serverPort ) );
 		usleep( 50000 );
 
@@ -594,9 +543,9 @@ namespace Client
 		int choiceInt = ListMenu( list, listType );
 		while( choiceInt != -1 )
 		{
+			partnerUsername = list[ choiceInt - 1 ];
+			main_chat( );
 			choiceInt = ListMenu( list, listType );
-			string partnerUsername = list[ choiceInt - 1 ];
-			main_chat( partnerUsername );
 		}
 	}
 
@@ -625,7 +574,7 @@ namespace Client
 				{
 					ShowList( );
 				}
-				case 9:
+				case 10:
 				{
 					login = false;
 					break;
@@ -690,7 +639,7 @@ namespace Client
 					Register( );
 					break;
 				}
-				case 9:
+				case 10:
 				{
 					exit = true;
 					break;
@@ -739,7 +688,7 @@ namespace Client
 					term.MsgPos( "sender: job.TryTCP( ) : \"" + job.command + "\" # " + to_string( job.id ), Position( 20, 5 ) );
 					clog << term << job;
 #endif
-					
+
 					job.TryTCP( result, isTimeout );
 
 					if( result != "" )
@@ -749,7 +698,7 @@ namespace Client
 						clog << term;
 #endif
 						resultQueue.push( result );
-						
+
 						sendList.erase( it );
 						break;
 					}
@@ -773,7 +722,7 @@ namespace Client
 				string result = "";
 				bool isTimeout;
 #ifdef DEBUG_SENDER
-				term.MsgPos( "sender: job.TryTCP( ) : \"" + job.command + "\" # " + to_string( job.id ), Position( 20, 5 ) );
+				term.MsgPos( "sender: job.TryTCP( ) : \"" + job.command + "\" # " + to_string( job.id ), Position( 30, 5 ) );
 				clog << term << job;
 #endif
 				job.TryTCP( result, isTimeout );
@@ -781,7 +730,7 @@ namespace Client
 				if( result != "" )
 				{
 #ifdef DEBUG_SENDER
-					term.MsgPos( "sender: result = \"" + result + "\"", Position( 24, 5 ) );
+					term.MsgPos( "sender: result = \"" + result + "\"", Position( 34, 5 ) );
 					clog << term;
 #endif
 					resultQueue.push( result );
@@ -791,7 +740,7 @@ namespace Client
 				else if( isTimeout )
 				{
 #ifdef DEBUG_SENDER
-					term.MsgPos( "sender: timeout # " + to_string( job.id ), Position( 21, 5 ) );
+					term.MsgPos( "sender: timeout # " + to_string( job.id ), Position( 31, 5 ) );
 					clog << term;
 #endif
 					sendQueue.pop( );
@@ -803,8 +752,139 @@ namespace Client
 			usleep( 61803 );
 		}
 #ifdef DEBUG_SENDER
-		term.MsgPos( "sender: dude.", Position( 20, 50 ) );
+		term.MsgPos( "sender: dude.", Position( 30, 50 ) );
 #endif
+	}
+
+	bool getLastMsgId( string &rootMsgId )
+	{
+		string command = "last_message " + sessionToken + " " + partnerUsername;
+
+		SendJobToSender( TCPJob( command, serverName, serverPort ) );
+		usleep( 50000 );
+
+		bool msgIdPending = true;
+		while( msgIdPending )
+		{
+			{
+				lock_guard<mutex> resultLock( resultMutex );
+
+				if( not resultQueue.empty( ) )
+				{
+					string &result = resultQueue.front( );
+
+					if( result == "timeout" )
+					{
+						ConnectionTimeout( 20 );
+						break;
+					}
+					else if( result.substr( 0, 2 ) == "AC" )
+					{
+						if( result == "AC" )
+						{
+							rootMsgId = "";
+						}
+						else
+						{
+							rootMsgId = result.substr( 3, 16 );
+						}
+
+						return true;
+					}
+
+					resultQueue.pop( );
+					msgIdPending = false;
+				}
+			}
+
+			usleep( 50000 );
+		}
+
+		return false;
+	}
+
+	bool getMsgs( deque<string> &msgCache, const string &msgId, const bool newer, const int count = 1 )
+	{
+		if( msgId == "" )
+		{
+			return false;
+		}
+
+		string command = ( newer ? "next_messages " : "prev_messages " ) + sessionToken + " " + msgId + " " + to_string( count );
+
+		SendJobToSender( TCPJob( command, serverName, serverPort ) );
+		usleep( 50000 );
+
+		bool msgsPending = true;
+		while( msgsPending )
+		{
+			{
+				lock_guard<mutex> resultLock( resultMutex );
+
+				if( not resultQueue.empty( ) )
+				{
+					stringstream resultStream( resultQueue.front( ) );
+					string result;
+
+					if( result == "timeout" )
+					{
+						ConnectionTimeout( 20 );
+						break;
+					}
+
+					resultStream >> result; // get rid of the "AC" msg.
+					resultStream >> result; // and get rif of N.
+
+					while( not resultStream.eof( ) )
+					{
+						resultStream >> result;
+						msgCache.push_back( result );
+					}
+
+					resultQueue.pop( );
+					return true;
+				}
+			}
+
+			usleep( 50000 );
+		}
+
+		return false;
+	}
+
+	void chatManager( )
+	{
+		string rootMsgId = "";
+		deque< string > msgCache;
+
+		term.Clear( );
+		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
+		term.MsgPos( "< Chat: " + partnerUsername + " >", Position( 3, 5 ) );
+		cout << term;
+
+		while( chatting )
+		{
+			while( not getLastMsgId( rootMsgId ) )
+			{
+				// empty
+			}
+
+			if( rootMsgId != "" )
+			{
+				while( not getMsgs( msgCache, rootMsgId, false, 14 ) )
+				{
+					// empty
+				}
+			}
+
+			for( int i = msgCache.size( ) - 1; i >= 0; --i )
+			{
+				term.MsgPos( msgCache[ i ], Position( 18 - msgCache.size( ) + i ) );
+				cout << term;
+			}
+
+			sleep( 1 );
+		}
 	}
 }
 
