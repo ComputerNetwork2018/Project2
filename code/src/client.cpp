@@ -241,7 +241,7 @@ namespace Client
 		term.MsgPos( "1. Login", Position( 4, 5 ) );
 		term.MsgPos( "2. Register", Position( 5, 5 ) );
 		term.MsgPos( "q. Exit", Position( 14, 5 ) );
-		term.MsgPos( "<Num> <ENTER> to choose an option: ", Position( 16, 1 ) );
+		term.MsgPos( "<Option> <ENTER> to choose an option: ", Position( 16, 1 ) );
 		cout << term;
 
 		string userChoice;
@@ -434,7 +434,7 @@ namespace Client
 			term.MsgPos( "5. Santa's Gift List", Position( 8, 5 ), Format( FORMAT_BOLD, COLOR_RED ) );
 		}
 		term.MsgPos( "q. Logout", Position( 14, 5 ) );
-		term.MsgPos( "<Num> <Enter> to choose an option: ", Position( 16, 1 ) );
+		term.MsgPos( "<Option> <Enter> to choose an option: ", Position( 16, 1 ) );
 		cout << term;
 
 		string userChoice;
@@ -761,7 +761,7 @@ namespace Client
 		term.MsgPos( "sender: dude.", Position( 30, 50 ) );
 #endif
 	}
-	
+
 	string ParseMsg( const string &rawMsg )
 	{
 		string msg = "";
@@ -781,10 +781,10 @@ namespace Client
 
 	void getMsgFromId( const string &msgId, string &msg )
 	{
-		string command = "get " + sessionToken + " " + msgId;
+		string command = "get_message " + sessionToken + " " + msgId;
 		SendJobToSender( TCPJob( command, serverName, serverPort ) );
 		usleep( 50000 );
-		
+
 		bool msgPending = true;
 		while( msgPending )
 		{
@@ -802,7 +802,7 @@ namespace Client
 					}
 					else
 					{
-						msg = result.substr( 3, 16 );
+						msg = result.substr( 3 );
 					}
 
 					resultQueue.pop( );
@@ -854,7 +854,25 @@ namespace Client
 				}
 			}
 
-			sleep( 50000 );
+			usleep( 50000 );
+		}
+	}
+
+	void getMsgs( const string &rootMsgId, vector<string> &resultList )
+	{
+		vector<string> temp;
+		getMsgs( rootMsgId, 13, true, temp );
+
+		for( auto i = temp.rbegin( ); i != temp.rend( ); ++i )
+		{
+			resultList.push_back( *i );
+		}
+		resultList.push_back( rootMsgId );
+
+		getMsgs( rootMsgId, 14 - temp.size( ), false, temp );
+		for( auto i = temp.begin( ); i != temp.end( ); ++i )
+		{
+			resultList.push_back( *i );
 		}
 	}
 
@@ -921,39 +939,46 @@ namespace Client
 
 			if( rootMsgId != "" )
 			{
-				msgCache.push_back( pair<string, string>( rootMsgId, "" ) );
-
 				vector<string> resultList( 0 );
-				getMsgs( rootMsgId, 13, true, resultList );
+				getMsgs( rootMsgId, resultList );
 
+				bool push = msgCache.empty( );
 				for( auto &i : resultList )
 				{
-					msgCache.push_back( pair<string, string>( i, "" ) );
-
-					if( msgCache.size( ) > 14 )
+					if( push )
 					{
-						msgCache.pop_front( );
+						msgCache.push_back( pair<string, string>( i, "" ) );
+						getMsgFromId( msgCache.back( ).first, msgCache.back( ).second );
+
+						if( msgCache.size( ) > 14 )
+						{
+							msgCache.pop_front( );
+						}
 					}
-				}
 
-				resultList.clear( );
-				getMsgs( rootMsgId, 14 - resultQueue.size( ), false, resultList );
-
-				for( auto &i : resultList )
-				{
-					msgCache.push_front( pair<string, string>( i, "" ) );
-				}
-
-				for( auto &i : msgCache )
-				{
-					getMsgFromId( i.first, i.second );
+					if( i == msgCache.back( ).first )
+					{
+						push = true;
+					}
 				}
 
 				for( size_t i = 0; i < msgCache.size( ); ++i )
 				{
-					term.MsgPos( ParseMsg( msgCache[ i ].second ), Position( 18 - msgCache.size( ) + i ) );
+					term.MsgPos( ParseMsg( msgCache[ i ].second ), Position( 18 - msgCache.size( ) + i, 5 ) );
 				}
+
+				cout << "\e[s" << flush;
 				cout << term;
+				cout << "\e[u" << flush;
+
+				if( msgCache.empty( ) )
+				{
+					rootMsgId = "";
+				}
+				else
+				{
+					rootMsgId = msgCache.back( ).first;
+				}
 			}
 
 			sleep( 1 );

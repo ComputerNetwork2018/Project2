@@ -210,7 +210,6 @@ namespace DataBase
 	{
 		bool TryGetNextMessages( const string &username, const string &message_id, const int desired_count, string &response )
 		{
-			lock_guard<mutex>guard( mutex_global );
 			const auto it = messages.find( message_id );
 			if( it == messages.end( ) )return response = "non-existing message_id", false;
 			auto msg = it->second;
@@ -231,7 +230,6 @@ namespace DataBase
 		}
 		bool TryGetPreviousMessages( const string &username, const string &message_id, const int desired_count, string &response )
 		{
-			lock_guard<mutex>guard( mutex_global );
 			const auto it = messages.find( message_id );
 			if( it == messages.end( ) )return response = "non-existing message_id", false;
 			auto msg = it->second;
@@ -457,98 +455,98 @@ bool ProcessMessage( const string &msg, string &response )
 	// “signup <username> <password>”
 	if( title == "signup" )
 	{
-		if( args.size( ) != 3 )return response = "signup expect 3 params, got " + to_string( args.size( ) ), false;
+		if( args.size( ) != 3 )return response = "signup <username> <password> expect 3 params, got " + to_string( args.size( ) ), false;
 		return DataBase::TrySignup( args[ 1 ], args[ 2 ], response );
 	}
 	else
 		// “login <username> <password>”
 		if( title == "login" )
 		{
-			if( args.size( ) != 3 )return response = "login expect 3 params, got " + to_string( args.size( ) ), false;
+			if( args.size( ) != 3 )return response = "login <username> <password> expect 3 params, got " + to_string( args.size( ) ), false;
 			return DataBase::TryLogin( args[ 1 ], args[ 2 ], response );
 		}
 		else
 			// “online_users <session_token>”
 			if( title == "online_users" )
 			{
-				if( args.size( ) != 2 )return response = "online_users expect 2 params, got " + to_string( args.size( ) ), false;
+				if( args.size( ) != 2 )return response = "online_users <session_token> expect 2 params, got " + to_string( args.size( ) ), false;
 				return DataBase::TryGetOnlineUsers( args[ 1 ], response );
 			}
 			else
 				// “friends <session_token>”
 				if( title == "friends" )
 				{
-					if( args.size( ) != 2 )return response = "friends expect 2 params, got " + to_string( args.size( ) ), false;
+					if( args.size( ) != 2 )return response = "friends <session_token> expect 2 params, got " + to_string( args.size( ) ), false;
 					return DataBase::TryGetFriends( args[ 1 ], response );
 				}
 				else
 					// “add_friend <session_token> <friend username>”
 					if( title == "add_friend" )
 					{
-						if( args.size( ) != 3 )return response = "add_friend expect 3 params, got " + to_string( args.size( ) ), false;
+						if( args.size( ) != 3 )return response = "add_friend <session_token> <friend username> expect 3 params, got " + to_string( args.size( ) ), false;
 						return DataBase::TryAddFriend( args[ 1 ], args[ 2 ], response );
 					}
 					else
 						// “remove_friend <session_token> <friend username>”
 						if( title == "remove_friend" )
 						{
-							if( args.size( ) != 3 )return response = "remove_friend expect 3 params, got " + to_string( args.size( ) ), false;
+							if( args.size( ) != 3 )return response = "remove_friend <session_token> <friend username> expect 3 params, got " + to_string( args.size( ) ), false;
 							return DataBase::TryRemoveFriend( args[ 1 ], args[ 2 ], response );
 						}
 						else
 							// “get_message <session_token> <message_id>”
 							if( title == "get_message" )
 							{
-								if( args.size( ) != 3 )return response = "get_message expect 3 params, got " + to_string( args.size( ) ), false;
+								if( args.size( ) != 3 )return response = "get_message <session_token> <message_id> expect 3 params, got " + to_string( args.size( ) ), false;
 								return DataBase::TryGetMessage( args[ 1 ], args[ 2 ], response );
 							}
 							else
 								// “send_message <session_token> <partner username> <message>”
 								if( title == "send_message" )
 								{
-									if( args.size( ) != 4 )return response = "send_message expect 4 params, got " + to_string( args.size( ) ), false;
+									if( args.size( ) != 4 )return response = "send_message <session_token> <partner username> <message> expect 4 params, got " + to_string( args.size( ) ), false;
 									return DataBase::TrySendMessage( args[ 1 ], args[ 2 ], args[ 3 ], response );
 								}
 								else
 									// “last_message <session_token> <partner username>”
 									if( title == "last_message" )
 									{
-										if( args.size( ) != 3 )return response = "last_message expect 3 params, got " + to_string( args.size( ) ), false;
+										if( args.size( ) != 3 )return response = "last_message <session_token> <partner username> expect 3 params, got " + to_string( args.size( ) ), false;
 										return DataBase::TryGetLastMessage( args[ 1 ], args[ 2 ], response );
 									}
 									else
 										// “next_messages <session_token> <message_id> <desired number of messages to get>”
 										if( title == "next_messages" )
 										{
-											if( args.size( ) != 4 )return response = "next_messages expect 4 params, got " + to_string( args.size( ) ), false;
+											if( args.size( ) != 4 )return response = "next_messages <session_token> <message_id> <desired number of messages to get> expect 4 params, got " + to_string( args.size( ) ), false;
 											return DataBase::TryGetNextMessages( args[ 1 ], args[ 2 ], args[ 3 ], response );
 										}
 										else
 											// “prev_messages <session_token> <message_id> <desired number of messages to get>”
 											if( title == "prev_messages" )
 											{
-												if( args.size( ) != 4 )return response = "prev_messages expect 4 params, got " + to_string( args.size( ) ), false;
+												if( args.size( ) != 4 )return response = "prev_messages <session_token> <message_id> <desired number of messages to get> expect 4 params, got " + to_string( args.size( ) ), false;
 												return DataBase::TryGetPreviousMessages( args[ 1 ], args[ 2 ], args[ 3 ], response );
 											}
 											else
 												// “file_request <session_id> <receiver username> <file_size>”
 												if( title == "file_request" )
 												{
-													if( args.size( ) != 4 )return response = "file_request expect 4 params, got " + to_string( args.size( ) ), false;
+													if( args.size( ) != 4 )return response = "file_request <session_id> <receiver username> <file_size> expect 4 params, got " + to_string( args.size( ) ), false;
 													return DataBase::TryFileRequest( args[ 1 ], args[ 2 ], args[ 3 ], response );
 												}
 												else
 													// “check_file_request <session_id>”
 													if( title == "check_file_request" )
 													{
-														if( args.size( ) != 2 )return response = "check_file_request expect 2 params, got " + to_string( args.size( ) ), false;
+														if( args.size( ) != 2 )return response = "check_file_request <session_id> expect 2 params, got " + to_string( args.size( ) ), false;
 														return DataBase::TryCheckFileRequest( args[ 1 ], response );
 													}
 													else
 														// “send_file <session_id> <file_id> <entire file content>”
 														if( title == "send_file" )
 														{
-															if( args.size( ) < 4 )return response = "send_file expect 4 params, got " + to_string( args.size( ) ), false;
+															if( args.size( ) < 4 )return response = "send_file <session_id> <file_id> <entire file content> expect 4 params, got " + to_string( args.size( ) ), false;
 															string file_content = args[ 3 ];
 															for( int i = 4; i < (int) args.size( ); i++ )file_content += " " + args[ i ];
 															return DataBase::TrySendFile( args[ 1 ], args[ 2 ], file_content, response );
@@ -557,14 +555,14 @@ bool ProcessMessage( const string &msg, string &response )
 															// “receive_file <session_id> <file_id>”
 															if( title == "receive_file" )
 															{
-																if( args.size( ) != 3 )return response = "receive_file expect 3 params, got " + to_string( args.size( ) ), false;
+																if( args.size( ) != 3 )return response = "receive_file <session_id> <file_id> expect 3 params, got " + to_string( args.size( ) ), false;
 																return DataBase::TryReceiveFile( args[ 1 ], args[ 2 ], response );
 															}
 															else
 																// "online_check <session token> <username>"
 																if( title == "online_check" )
 																{
-																	if( args.size( ) != 3 )return response = "online_check expect 3 params, got " + to_string( args.size( ) ), false;
+																	if( args.size( ) != 3 )return response = "online_check <session token> <username> expect 3 params, got " + to_string( args.size( ) ), false;
 																	return DataBase::TryOnlineCheck( args[ 1 ], args[ 2 ], response );
 																}
 																else
@@ -629,8 +627,7 @@ int main( int argc, char *argv[ ] )
 					cout << "recv from " << client_fds[ fd ] << " : \"" << msg << "\"" << endl;
 #else
 					cout << "recv from " << client_fds[ fd ] << endl;
-#endif
-
+#endif			
 				}
 				// call thread constructor to execute in background
 				// call thread.detach() to allow safe destruction while still executing in background
@@ -639,11 +636,11 @@ int main( int argc, char *argv[ ] )
 					string response = "";
 					string to_send = ProcessMessage( _msg, response ) ? "AC" : "WA";
 					if( response != "" )to_send += " " + response;
+					bool err;
+					if( !send_string( _fd, to_send, err ) )cerr << "send error" << endl;
 #ifdef DEBUG
 					cout << "send back \"" << to_send << "\"" << endl;
 #endif
-					bool err;
-					if( !send_string( _fd, to_send, err ) )cerr << "send error" << endl;
 					close( _fd );
 					{
 						lock_guard<mutex>lock( mutex_client_fds );
