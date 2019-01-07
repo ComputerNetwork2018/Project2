@@ -19,7 +19,7 @@ namespace DataBase
 			public:
 			Message(){}
 			Message(const string &_from,const string &_to,const string &_text):from(_from),to(_to),text(_text){}
-			string to_json()const{return "{from:"+from+",to:"+to+",text:"+text+"}";}
+			string to_json()const{return "{from:"+from+",to:"+to+",text:"+text+"}"+prev+","+next;}
 			bool belong_to(const string &name)const{return name==from||name==to;}
 			void SetPrev(const string &message_id){assert(prev=="");prev=message_id;}
 			void SetNext(const string &message_id){assert(next=="");next=message_id;}
@@ -202,6 +202,7 @@ namespace DataBase
 				const auto iu=messages.find(next_id);
 				assert(iu!=messages.end());
 				msg=iu->second;
+				ans.push_back(next_id);
 			}
 			response=to_string(ans.size());
 			for(const string &id:ans)response+=" "+id;
@@ -214,14 +215,17 @@ namespace DataBase
 			auto msg=it->second;
 			if(!msg.belong_to(username))return response="permission denied",false;
 			vector<string>ans;
+//            clog<<"desired_count="<<desired_count<<endl;
 			for(int i=0;i<desired_count;i++)
 			{
 				assert(msg.belong_to(username));
 				const string &prev_id=msg.GetPrev();
+				//clog<<"i="<<i<<",prev_id="<<prev_id<<endl;
 				if(prev_id=="")break;
 				const auto iu=messages.find(prev_id);
 				assert(iu!=messages.end());
 				msg=iu->second;
+				ans.push_back(prev_id);
 			}
 			response=to_string(ans.size());
 			for(const string &id:ans)response+=" "+id;
