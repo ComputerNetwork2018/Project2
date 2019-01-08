@@ -17,15 +17,19 @@
 
 #ifdef DEBUG
 
-#define DEBUG_MAIN
-#define DEBUG_LOGIN
+// #define DEBUG_MAIN
+// #define DEBUG_LOGIN
 // #define DEBUG_SENDER
-#define DEBUG_CHAT
-#define DEBUG_LIST_MENU
+// #define DEBUG_CHAT
+// #define DEBUG_LIST_MENU
 
 #endif
 
-#define MENU_PAGE_SIZE 20
+#define CACHE_HEIGHT 12
+#define EXIT_BAR_HEIGHT 20
+#define OPTION_HEIGHT 22
+#define SCREEN_HEIGHT 24
+#define TAB_COL 5
 
 using namespace std;
 
@@ -136,12 +140,12 @@ namespace Client
 		} while( temp != '\n' );
 	}
 
-	void ConnectionTimeout( int bottomColumn = 10 )
+	void ConnectionTimeout( int bottomColumn = SCREEN_HEIGHT )
 	{
 		term.Clear( );
 		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
-		term.MsgPos( "< Main Menu >", Position( 3, 5 ) );
-		term.MsgPos( "Connection timeout.", Position( 5, 5 ), Format( FORMAT_BOLD, COLOR_YELLOW ) );
+		term.MsgPos( "< Main Menu >", Position( 3, TAB_COL ) );
+		term.MsgPos( "Connection timeout.", Position( 5, TAB_COL ), Format( FORMAT_BOLD, COLOR_YELLOW ) );
 		cout << term;
 
 		WaitEnter( Position( bottomColumn, 5 ) );
@@ -182,35 +186,35 @@ namespace Client
 		{
 			term.Clear( );
 			term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
-			term.MsgPos( title, Position( 3, 5 ) );
+			term.MsgPos( title, Position( 3, TAB_COL ) );
 			cout << term;
 
-			if( listToShow.size( ) > MENU_PAGE_SIZE )
+			if( listToShow.size( ) > CACHE_HEIGHT )
 			{
 				// ListMenu_MultiPage( listToShow, 0 );
 			}
 			else if( listToShow.size( ) == 0 )
 			{
-				term.MsgPos( emptyMsg[ 0 ], Position( 5, 5 ) );
-				term.MsgPos( emptyMsg[ 1 ], Position( 6, 5 ), Format( FORMAT_BOLD, COLOR_RED ) );
+				term.MsgPos( emptyMsg[ 0 ], Position( 5, TAB_COL ) );
+				term.MsgPos( emptyMsg[ 1 ], Position( 6, TAB_COL ), Format( FORMAT_BOLD, COLOR_RED ) );
 
-				term.MsgPos( "Oh, maybe you're just offline.", Position( 8, 5 ) );
+				term.MsgPos( "Oh, maybe you're just offline.", Position( 8, TAB_COL ) );
 
-				WaitEnter( Position( 10, 5 ) );
+				WaitEnter( Position( SCREEN_HEIGHT, TAB_COL ) );
 				return -1;
 			}
 			else
 			{
 				for( size_t i = 0; i < listToShow.size( ); ++i )
 				{
-					term.MsgPos( to_string( i + 1 ) + ( i < 10 ? ".  " : ". " ) + listToShow[ i ], Position( 5 + static_cast<int>( i ), 5 ) );
+					term.MsgPos( to_string( i + 1 ) + ( i < 10 ? ".  " : ". " ) + listToShow[ i ], Position( 5 + static_cast<int>( i ), TAB_COL ) );
 				}
 
 				cout << term;
 			}
 
-			term.MsgPos( "User to chat:     ( q to exit )", Position( 6 + static_cast<int>( listToShow.size( ) ), 5 ) );
-			term.MsgPos( "", Position( 6 + static_cast<int>( listToShow.size( ) ), 20 ) );
+			term.MsgPos( "User to chat:     ( q to exit )", Position( 6 + static_cast<int>( listToShow.size( ) ), TAB_COL ) );
+			term.MsgPos( "", Position( 6 + static_cast<int>( listToShow.size( ) ), TAB_COL + 15 ) );
 			cout << term;
 
 			string userChoice;
@@ -237,11 +241,11 @@ namespace Client
 	{
 		term.Clear( );
 		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
-		term.MsgPos( "< Main Menu >", Position( 3, 5 ) );
-		term.MsgPos( "1. Login", Position( 4, 5 ) );
-		term.MsgPos( "2. Register", Position( 5, 5 ) );
-		term.MsgPos( "q. Exit", Position( 14, 5 ) );
-		term.MsgPos( "<Option> <ENTER> to choose an option: ", Position( 16, 1 ) );
+		term.MsgPos( "< Main Menu >", Position( 3, TAB_COL ) );
+		term.MsgPos( "1. Login", Position( 4, TAB_COL ) );
+		term.MsgPos( "2. Register", Position( 5, TAB_COL ) );
+		term.MsgPos( "q. Exit", Position( EXIT_BAR_HEIGHT, TAB_COL ) );
+		term.MsgPos( "<Option> <ENTER> to choose an option: ", Position( OPTION_HEIGHT, 1 ) );
 		cout << term;
 
 		string userChoice;
@@ -267,14 +271,14 @@ namespace Client
 	{
 		term.Clear( );
 		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
-		term.MsgPos( "< Login >", Position( 3, 5 ) );
-		term.MsgPos( "Username: ", Position( 5, 5 ) );
+		term.MsgPos( "< Login >", Position( 3, TAB_COL ) );
+		term.MsgPos( "Username: ", Position( 5, TAB_COL ) );
 		cout << term;
 
 		string username;
 		cin >> username;
 
-		term.MsgPos( "Password: ", Position( 6, 5 ) );
+		term.MsgPos( "Password: ", Position( 6, TAB_COL ) );
 		cout << term;
 
 		string password;
@@ -282,11 +286,11 @@ namespace Client
 
 		term.Clear( );
 		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
-		term.MsgPos( "< Login >", Position( 3, 5 ) );
-		term.MsgPos( "Logging in...", Position( 5, 5 ) );
+		term.MsgPos( "< Login >", Position( 3, TAB_COL ) );
+		term.MsgPos( "Logging in...", Position( 5, TAB_COL ) );
 		cout << term;
 
-		string command = "login " + username + " " + password;
+		string command = "login " + username + " " + Encode( password );
 
 		SendJobToSender( TCPJob( command, serverName, serverPort ) );
 
@@ -305,23 +309,23 @@ namespace Client
 					if( result == "timeout" )
 					{
 						loginSuccess = false;
-						term.MsgPos( " failed : connection timeout", Position( 5, 18 ) );
+						term.MsgPos( " failed : connection timeout", Position( 5, TAB_COL + 13 ) );
 					}
 					else if( result.substr( 0, 2 ) == "WA" )
 					{
 						loginSuccess = false;
-						term.MsgPos( " failed : " + result.substr( 2 ), Position( 5, 18 ) );
+						term.MsgPos( " failed : " + result.substr( 2 ), Position( 5, TAB_COL + 13 ) );
 					}
 					else if( result.substr( 0, 2 ) == "AC" )
 					{
 						loginSuccess = true;
-						sessionTokenTobe = result.substr( 3, 16 );
-						term.MsgPos( " success!", Position( 5, 18 ) );
+						sessionTokenTobe = result.substr( 3, TAB_COL + 11 );
+						term.MsgPos( " success!", Position( 5, TAB_COL + 13 ) );
 					}
 					else
 					{
 						loginSuccess = false;
-						term.MsgPos( " failed : unknown error [ " + result + " ]" + result.substr( 2 ), Position( 5, 18 ) );
+						term.MsgPos( " failed : unknown error [ " + result + " ]" + result.substr( 2 ), Position( 5, TAB_COL + 13 ) );
 					}
 
 					cout << term;
@@ -329,7 +333,7 @@ namespace Client
 					loginPending = false;
 					resultQueue.pop( );
 
-					WaitEnter( Position( 7, 5 ) );
+					WaitEnter( Position( 7, TAB_COL ) );
 				}
 			}
 		}
@@ -341,9 +345,9 @@ namespace Client
 	{
 		term.Clear( );
 		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
-		term.MsgPos( "< Register >", Position( 3, 5 ) );
-		term.MsgPos( "Format: [0-9a-zA-Z_]*, length is not limited.", Position( 6, 5 ) );
-		term.MsgPos( "Username: ", Position( 5, 5 ) );
+		term.MsgPos( "< Register >", Position( 3, TAB_COL ) );
+		term.MsgPos( "Format: [0-9a-zA-Z_]*, length is not limited.", Position( 6, TAB_COL ) );
+		term.MsgPos( "Username: ", Position( 5, TAB_COL ) );
 		cout << term;
 
 		string username;
@@ -351,14 +355,14 @@ namespace Client
 
 		while( not UsernameValid( username ) )
 		{
-			term.MsgPos( "Format: [0-9a-zA-Z_]*, length is not limited.", Position( 6, 5 ) );
-			term.MsgPos( "Username: ", Position( 5, 5 ) );
+			term.MsgPos( "Format: [0-9a-zA-Z_]*, length is not limited.", Position( 6, TAB_COL ) );
+			term.MsgPos( "Username: ", Position( 5, TAB_COL ) );
 			cout << term;
 
 			cin >> username;
 		}
 
-		term.MsgPos( "Password: ", Position( 7, 5 ) );
+		term.MsgPos( "Password: ", Position( 7, TAB_COL ) );
 		cout << term;
 
 		string password;
@@ -366,11 +370,11 @@ namespace Client
 
 		term.Clear( );
 		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
-		term.MsgPos( "< Register >", Position( 3, 5 ) );
-		term.MsgPos( "Registering...", Position( 5, 5 ) );
+		term.MsgPos( "< Register >", Position( 3, TAB_COL ) );
+		term.MsgPos( "Registering...", Position( 5, TAB_COL ) );
 		cout << term;
 
-		string command = "signup " + username + " " + password;
+		string command = "signup " + username + " " + Encode( password );
 
 		SendJobToSender( TCPJob( command, serverName, serverPort ) );
 
@@ -386,19 +390,19 @@ namespace Client
 
 					if( result == "timeout" )
 					{
-						term.MsgPos( " failed : connection timeout", Position( 5, 18 ) );
+						term.MsgPos( " failed : connection timeout", Position( 5, TAB_COL + 13 ) );
 					}
 					else if( result.substr( 0, 2 ) == "WA" )
 					{
-						term.MsgPos( " failed : " + result.substr( 2 ), Position( 5, 18 ) );
+						term.MsgPos( " failed : " + result.substr( 2 ), Position( 5, TAB_COL + 13 ) );
 					}
 					else if( result.substr( 0, 2 ) == "AC" )
 					{
-						term.MsgPos( " success!", Position( 5, 18 ) );
+						term.MsgPos( " success!", Position( 5, TAB_COL + 13 ) );
 					}
 					else
 					{
-						term.MsgPos( " failed : unknown error [" + result + " ]" + result.substr( 2 ), Position( 5, 18 ) );
+						term.MsgPos( " failed : unknown error [" + result + " ]" + result.substr( 2 ), Position( 5, TAB_COL + 13 ) );
 					}
 
 					cout << term;
@@ -406,7 +410,7 @@ namespace Client
 					registerPending = false;
 					resultQueue.pop( );
 
-					WaitEnter( Position( 7, 5 ) );
+					WaitEnter( Position( 7, TAB_COL ) );
 				}
 			}
 		}
@@ -420,15 +424,15 @@ namespace Client
 
 		term.Clear( );
 		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
-		term.MsgPos( "< Main Menu >", Position( 3, 5 ) );
-		term.MsgPos( "1. Friend List", Position( 4, 5 ) );
-		term.MsgPos( "2. Online User List", Position( 5, 5 ) );
+		term.MsgPos( "< Main Menu >", Position( 3, TAB_COL ) );
+		term.MsgPos( "1. Friend List", Position( 4, TAB_COL ) );
+		term.MsgPos( "2. Online User List", Position( 5, TAB_COL ) );
 		if( randomizer[ 0 ] )
 		{
-			term.MsgPos( "5. Santa's Gift List", Position( 8, 5 ), Format( FORMAT_BOLD, COLOR_RED ) );
+			term.MsgPos( "5. Santa's Gift List", Position( 8, TAB_COL ), Format( FORMAT_BOLD, COLOR_RED ) );
 		}
-		term.MsgPos( "q. Logout", Position( 14, 5 ) );
-		term.MsgPos( "<Option> <Enter> to choose an option: ", Position( 16, 1 ) );
+		term.MsgPos( "q. Logout", Position( EXIT_BAR_HEIGHT, TAB_COL ) );
+		term.MsgPos( "<Option> <Enter> to choose an option: ", Position( OPTION_HEIGHT, 1 ) );
 		cout << term;
 
 		string userChoice;
@@ -463,13 +467,20 @@ namespace Client
 
 	void main_chat( )
 	{
+		term.Clear( );
+		term.MsgPos( "CNline: An Online Messenger", Position( 1, 1 ) );
+		term.MsgPos( "< Main Menu >", Position( 3, TAB_COL ) );
+		cout << term;
+
 		chatting = true;
 
 		thread chatMgr( chatManager );
 
-		term.Fill( Position( 25, 0 ), Position( 26, 300 ), Format( ), ' ' );
-		term.MsgPos( "Type \"/q\" (without quotation mark) in to quit.", Position( 27, 5 ) );
-		term.MsgPos( "> ", Position( 25, 5 ) );
+		term.Fill( Position( OPTION_HEIGHT, 0 ), Position( SCREEN_HEIGHT + 1, 300 ), Format( ), ' ' );
+		term.MsgPos( "/a /r : add friend / remove friend", Position( SCREEN_HEIGHT - 2, TAB_COL ) );
+		term.MsgPos( "/f <filename1> <filename2> ... : file transfer", Position( SCREEN_HEIGHT - 1, TAB_COL ) );
+		term.MsgPos( "/q : quit.", Position( SCREEN_HEIGHT, TAB_COL ) );
+		term.MsgPos( "> ", Position( EXIT_BAR_HEIGHT, TAB_COL ) );
 		cout << term;
 
 		string msg;
@@ -483,9 +494,11 @@ namespace Client
 				msgQueue.push( msg );
 			}
 
-			term.Fill( Position( 25, 0 ), Position( 26, 300 ), Format( ), ' ' );
-			term.MsgPos( "Type \"/q\" (without quotation mark) in to quit.", Position( 27, 5 ) );
-			term.MsgPos( "> ", Position( 25, 5 ) );
+			term.Fill( Position( OPTION_HEIGHT, 0 ), Position( SCREEN_HEIGHT + 1, 300 ), Format( ), ' ' );
+			term.MsgPos( "/a /r : add friend / remove friend", Position( SCREEN_HEIGHT - 2, TAB_COL ) );
+			term.MsgPos( "/f <filename1> <filename2> ... : file transfer", Position( SCREEN_HEIGHT - 1, TAB_COL ) );
+			term.MsgPos( "/q : quit.", Position( SCREEN_HEIGHT, TAB_COL ) );
+			term.MsgPos( "> ", Position( EXIT_BAR_HEIGHT, TAB_COL ) );
 			cout << term;
 			getline( cin, msg );
 		}
@@ -578,10 +591,10 @@ namespace Client
 				}
 				default:
 				{
-					term.MsgPos( "Unknown Option.", Position( 14, 36 ), Format( FORMAT_BOLD ) );
+					term.MsgPos( "Unknown Option.", Position( OPTION_HEIGHT, TAB_COL + 33 ), Format( FORMAT_BOLD ) );
 					cout << term;
 
-					WaitEnter( Position( 15, 1 ) );
+					WaitEnter( Position( SCREEN_HEIGHT, 1 ) );
 					break;
 				}
 			}
@@ -643,10 +656,10 @@ namespace Client
 				}
 				default:
 				{
-					term.MsgPos( "Unknown Option.", Position( 14, 36 ), Format( FORMAT_BOLD ) );
+					term.MsgPos( "Unknown Option.", Position( OPTION_HEIGHT, TAB_COL + 13 ), Format( FORMAT_BOLD ) );
 					cout << term;
 
-					WaitEnter( Position( 15, 1 ) );
+					WaitEnter( Position( SCREEN_HEIGHT, 1 ) );
 					break;
 				}
 			}
@@ -663,7 +676,7 @@ namespace Client
 	void tcpSender( )
 	{
 #ifdef DEBUG_SENDER
-		term.MsgPos( "sender: thread begin.", Position( 20, 5 ) );
+		term.MsgPos( "sender: thread begin.", Position( 20, TAB_COL ) );
 		clog << term;
 #endif
 		while( not exit )
@@ -718,7 +731,7 @@ namespace Client
 				string result = "";
 				bool isTimeout;
 #ifdef DEBUG_SENDER
-				term.MsgPos( "sender: job.TryTCP( ) : \"" + job.command + "\" # " + to_string( job.id ), Position( 30, 5 ) );
+				term.MsgPos( "sender: job.TryTCP( ) : \"" + job.command + "\" # " + to_string( job.id ), Position( 30, TAB_COL ) );
 				clog << term << job;
 #endif
 				job.TryTCP( result, isTimeout );
@@ -726,7 +739,7 @@ namespace Client
 				if( result != "" )
 				{
 #ifdef DEBUG_SENDER
-					term.MsgPos( "sender: result = \"" + result + "\"", Position( 34, 5 ) );
+					term.MsgPos( "sender: result = \"" + result + "\"", Position( 34, TAB_COL ) );
 					clog << term;
 #endif
 					resultQueue.push( result );
@@ -736,7 +749,7 @@ namespace Client
 				else if( isTimeout )
 				{
 #ifdef DEBUG_SENDER
-					term.MsgPos( "sender: timeout # " + to_string( job.id ), Position( 31, 5 ) );
+					term.MsgPos( "sender: timeout # " + to_string( job.id ), Position( 31, TAB_COL ) );
 					clog << term;
 #endif
 					sendQueue.pop( );
@@ -747,7 +760,7 @@ namespace Client
 			resultLock.unlock( );
 		}
 #ifdef DEBUG_SENDER
-		term.MsgPos( "sender: dude.", Position( 30, 50 ) );
+		term.MsgPos( "sender: dude.", Position( 30, TAB_COL + 45 ) );
 #endif
 	}
 
@@ -786,7 +799,7 @@ namespace Client
 					if( result == "timeout" )
 					{
 						msg = "";
-						ConnectionTimeout( 20 );
+						ConnectionTimeout( SCREEN_HEIGHT );
 					}
 					else
 					{
@@ -821,7 +834,7 @@ namespace Client
 					if( result == "timeout" )
 					{
 						resultList.clear( );
-						ConnectionTimeout( 20 );
+						ConnectionTimeout( SCREEN_HEIGHT );
 					}
 					else
 					{
@@ -845,7 +858,7 @@ namespace Client
 	{
 		vector<string> temp( 0 );
 
-		getMsgs( rootMsgId, 13, false, temp );
+		getMsgs( rootMsgId, CACHE_HEIGHT - 1, false, temp );
 		for( auto i = temp.rbegin( ); i != temp.rend( ); ++i )
 		{
 			resultList.push_back( *i );
@@ -853,10 +866,10 @@ namespace Client
 
 		resultList.push_back( rootMsgId );
 
-		if( resultList.size( ) < 14 )
+		if( resultList.size( ) < CACHE_HEIGHT )
 		{
 			temp.clear( );
-			getMsgs( rootMsgId, 14 - resultList.size( ), true, temp );
+			getMsgs( rootMsgId, CACHE_HEIGHT - resultList.size( ), true, temp );
 			for( auto i = temp.begin( ); i != temp.end( ); ++i )
 			{
 				resultList.push_back( *i );
@@ -905,7 +918,7 @@ namespace Client
 
 						if( result == "timeout" )
 						{
-							ConnectionTimeout( 20 );
+							ConnectionTimeout( SCREEN_HEIGHT );
 						}
 						else if( result == "AC" )
 						{
@@ -913,7 +926,7 @@ namespace Client
 						}
 						else
 						{
-							rootMsgId = result.substr( 3, 16 );
+							rootMsgId = result.substr( 3, TAB_COL + 11 );
 						}
 
 						resultQueue.pop( );
@@ -943,7 +956,7 @@ namespace Client
 						msgCache.push_back( pair<string, string>( i, "" ) );
 						getMsgFromId( msgCache.back( ).first, msgCache.back( ).second );
 
-						if( msgCache.size( ) > 14 )
+						if( msgCache.size( ) > CACHE_HEIGHT )
 						{
 							msgCache.pop_front( );
 						}
@@ -958,10 +971,10 @@ namespace Client
 #endif
 				}
 
-				term.Fill( Position( 10, 1 ), Position( 23, 100 ), Format( ), ' ' );
+				term.Fill( Position( EXIT_BAR_HEIGHT - CACHE_HEIGHT, 1 ), Position( EXIT_BAR_HEIGHT - 2, 300 ), Format( ), ' ' );
 				for( size_t i = 0; i < msgCache.size( ); ++i )
 				{
-					term.MsgPos( ParseMsg( msgCache[ i ].second ), Position( 23 - msgCache.size( ) + i, 5 ) );
+					term.MsgPos( ParseMsg( msgCache[ i ].second ), Position( EXIT_BAR_HEIGHT - 1 - msgCache.size( ) + i, 5 ) );
 				}
 
 				cout << "\e[s" << flush;

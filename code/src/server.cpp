@@ -3,6 +3,13 @@
 #include<mutex>
 #include<chrono>
 #include"common.hpp"
+
+#ifdef DEBUG
+
+#define DEBUG_SERVER
+
+#endif
+
 using namespace std;
 using namespace chrono;
 namespace DataBase
@@ -627,7 +634,7 @@ int main( int argc, char *argv[ ] )
 			{
 				{
 					lock_guard<mutex>guard( mutex_client_fds );
-#ifdef DEBUG
+#ifdef DEBUG_SERVER
 					cout << "recv from " << client_fds[ fd ] << " : \"" << msg << "\"" << endl;
 #else
 					cout << "recv from " << client_fds[ fd ] << endl;
@@ -641,7 +648,7 @@ int main( int argc, char *argv[ ] )
 					string to_send = ProcessMessage( _msg, response ) ? "AC" : "WA";
 					if( response != "" )to_send += " " + response;
 					bool err;
-#ifdef DEBUG
+#ifdef DEBUG_SERVER
 					cout << "send back \"" << to_send << "\"" << endl;
 #endif
 					if( !send_string( _fd, to_send, err ) )cerr << "send error" << endl;
