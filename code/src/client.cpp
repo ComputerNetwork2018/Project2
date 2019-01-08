@@ -21,10 +21,10 @@
 
 // #define DEBUG_MAIN
 // #define DEBUG_LOGIN
-#define DEBUG_SENDER
+// #define DEBUG_SENDER
 // #define DEBUG_CHAT
 // #define DEBUG_LIST_MENU
-#define DEBUG_FILE
+// #define DEBUG_FILE
 
 #endif
 
@@ -993,7 +993,7 @@ namespace Client
 				if( fileID != "" )
 				{
 					command = "send_file " + sessionToken + " " + fileID + " " + buffer;
-					SendJobToSender( TCPJob( command, serverName, serverPort ), 1 );
+					SendJobToSender( TCPJob( command, serverName, serverPort, 300000 ), 1 );
 
 					RecvString( result, 1 );
 				}
@@ -1022,7 +1022,7 @@ namespace Client
 				if( fileID != "" )
 				{
 					command = "receive_file " + sessionToken + " " + fileID;
-					SendJobToSender( TCPJob( command, serverName, serverPort ), 1 );
+					SendJobToSender( TCPJob( command, serverName, serverPort, 300000 ), 1 );
 
 					RecvString( result, 1 );
 
