@@ -3,6 +3,7 @@
 #include<mutex>
 #include<chrono>
 #include"common.hpp"
+#include"common.cpp"
 using namespace std;
 using namespace chrono;
 namespace DataBase
@@ -18,6 +19,12 @@ namespace DataBase
 		public:
 			Message( )
 			{
+			}
+			Message(const string &load_string)
+			{
+				const auto data=split(load_string,' ');
+				assert(data.size()==5);
+				from=data[0],to=data[1],text=data[2],prev=data[3],next=data[4];
 			}
 			Message( const string &_from, const string &_to, const string &_text ) :from( _from ), to( _to ), text( _text )
 			{
@@ -46,6 +53,7 @@ namespace DataBase
 			{
 				return next;
 			}
+			string Save()const{assert(text.find(' ')==string::npos);return from+" "+to+" "+text+" "+prev+" "+next;}
 		};
 		mt19937 Rand( time( NULL ) );
 		string generate_token( )
@@ -66,6 +74,75 @@ namespace DataBase
 		map<string, set<string>>friends;// username, friends
 		map<string, Message>messages;// message_id, message_content
 		map<pair<string, string>, string>last_message;// <user1, user2>, message_id
+		void Save(string &u_s,string &f_s,string &m_s,string &l_s)
+		{
+//            clog<<"Saving to string...";
+			u_s="usernames";
+			f_s="friends";
+			m_s="messages";
+			l_s="last_message";
+			for(const auto p:usernames)u_s+="\n"+p.first+" "+p.second;
+			for(const auto p:friends)if(p.second.empty())
+			{
+				f_s+="\n"+p.first;
+				for(const auto f_name:p.second)f_s+=" "+f_name;
+			}
+			for(const auto p:messages)
+			{
+				m_s+="\n"+p.first+" "+p.second.Save();
+			}
+			for(const auto p:last_message)
+			{
+				l_s+="\n"+p.first.first+" "+p.first.second+" "+p.second;
+			}
+//            clog<<"\e[1;32mOK\e[m"<<endl;
+		}
+		void Load(const string &u_s,const string &f_s,const string &m_s,const string &l_s)
+		{
+			clog<<"Loading from string...";
+			usernames.clear();
+			session_tokens.clear();
+			friends.clear();
+			messages.clear();
+			last_message.clear();
+			const auto u=split(u_s,'\n');
+			const auto f=split(f_s,'\n');
+			const auto m=split(m_s,'\n');
+			const auto l=split(l_s,'\n');
+			if(!(u.size()&&f.size()&&m.size()&&l.size()&&u[0]=="usernames"&&f[0]=="friends"&&m[0]=="messages"&&l[0]=="last_message"))
+			{
+				clog<<u[0]<<endl<<f[0]<<endl<<m[0]<<endl<<l[0]<<endl;
+				return;
+			}
+			for(int i=1;i<(int)u.size();i++)
+			{
+				const auto v=split(u[i],' ');
+				assert(v.size()==2);
+				usernames[v[0]]=v[1];
+//                clog<<"user: "<<v[0]<<", "<<v[1]<<endl;
+			}
+			for(int i=1;i<(int)f.size();i++)
+			{
+				const auto v=split(f[i],' ');
+				assert(v.size()>=2);
+				for(int j=1;j<(int)v.size();j++)friends[v[0]].insert(v[j]);
+			}
+			for(int i=1;i<(int)m.size();i++)
+			{
+				const auto v=split(m[i],' ');
+				assert(v.size()>=2);
+				string s=v[1];
+				for(int j=2;j<(int)v.size();j++)s+=" "+v[j];
+				messages[v[0]]=Message(s);
+			}
+			for(int i=1;i<(int)l.size();i++)
+			{
+				const auto v=split(l[i],' ');
+				assert(v.size()==3);
+				last_message[make_pair(v[0],v[1])]=v[2];
+			}
+			clog<<"\e[1;32mOK\e[m"<<endl;
+		}
 		void ConnectMessage( const string &message_id1, const string &message_id2 )
 		{
 			auto it1 = messages.find( message_id1 ),
@@ -119,6 +196,50 @@ namespace DataBase
 		}
 	}
 	mutex mutex_global;
+	void Save()
+	{
+		lock_guard<mutex>guard( mutex_global );
+		string u,f,m,l;
+		Save(u,f,m,l);
+//        clog<<"Writing...";
+		{fstream file;file.open("usernames.txt",ios::out),file<<u,file.close();}
+		{fstream file;file.open("friends.txt",ios::out),file<<f,file.close();}
+		{fstream file;file.open("messages.txt",ios::out),file<<m,file.close();}
+		{fstream file;file.open("last_message.txt",ios::out),file<<l,file.close();}
+//        clog<<"\e[1;32mOK\e[m"<<endl;
+	}
+	void Load()
+	{
+		lock_guard<mutex>guard( mutex_global );
+		try
+		{
+			string u,f,m,l;
+			clog<<"Reading...";
+			{
+				fstream file;
+				if(!(file.open("usernames.txt",ios::in),file)){clog<<endl<<"usernames.txt not existed"<<endl;return;}
+				ReadToEnd(file,u),file.close();
+			}
+			{
+				fstream file;
+				if(!(file.open("friends.txt",ios::in),file)){clog<<endl<<"friends.txt not existed"<<endl;return;}
+				ReadToEnd(file,f),file.close();
+			}
+			{
+				fstream file;
+				if(!(file.open("messages.txt",ios::in),file)){clog<<endl<<"messages.txt not existed"<<endl;return;}
+				ReadToEnd(file,m),file.close();
+			}
+			{
+				fstream file;
+				if(!(file.open("last_message.txt",ios::in),file)){clog<<endl<<"last_message.txt not existed"<<endl;return;}
+				ReadToEnd(file,l),file.close();
+			}
+			clog<<"\e[1;32mOK\e[m"<<endl;
+			Load(u,f,m,l);
+		}
+		catch(...){clog<<"corrupted server save file"<<endl;}
+	}
 	bool TrySignup( const string &username, const string &password, string &msg )
 	{
 		lock_guard<mutex>guard( mutex_global );
@@ -430,7 +551,7 @@ namespace DataBase
 		}
 		string file_content;
 		//////////////////////////////// 10. receiver waits for the file associated with its file_id to be put up. HOW: watch file_contents to appear 
-		for( const auto start_clock = steady_clock::now( ); TimeBetween( start_clock ) < 1000 * 5;) // wait for 5 seconds
+		for( const auto start_clock = steady_clock::now( ); TimeBetween( start_clock ) < 1000 * 300;) // wait for 5 seconds
 		{
 			usleep( 1 );
 			lock_guard<mutex>guard( mutex_global );
@@ -598,6 +719,15 @@ int main( int argc, char *argv[ ] )
 	cerr << "Server fd = " << server_fd << ". Listening..." << endl;
 	map<int, string>client_fds;
 	mutex mutex_client_fds;
+	DataBase::Load();
+	thread([]()
+		{
+			while(true)
+			{
+				sleep(1);
+				DataBase::Save();
+			}
+		}).detach();
 	while( true )
 	{
 		usleep( 1 );
