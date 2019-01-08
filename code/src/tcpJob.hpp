@@ -16,11 +16,14 @@ namespace Client
 	class TCPJob
 	{
 	private:
-		steady_clock::time_point startClock;
-
 		int serverFd;
-		bool nothingToDo;
-		bool isHandshaking, isConnected, isSent, infoGiven;
+		bool nothingToDo = false;
+		bool isHandshaking = false;
+		bool isConnected = false;
+		bool isSent = false;
+		bool infoGiven = false;
+		
+		steady_clock::time_point startClock;
 
 		string result;
 		sockaddr_in socketInfo;
@@ -28,7 +31,8 @@ namespace Client
 		void _TryTCP( );
 
 	public:
-		TCPJob( const string &_command, const string &_host, const int _port, const int _timeout, const int _id );
+		TCPJob( const string &_command, const string &_host, const int _port, const int _timeout = 6000, const int _id = 0 );
+		~TCPJob( );
 
 		string command;
 		string host;
@@ -36,6 +40,8 @@ namespace Client
 
 		void TryTCP( string &info, bool &isTimeout );
 		int currentDelay( );
+
+		friend ostream& operator<< ( ostream &output, TCPJob &tcpJob );
 	};
 }
 

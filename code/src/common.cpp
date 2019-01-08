@@ -6,6 +6,11 @@
 #include<fcntl.h>
 
 using namespace std;
+void ReadToEnd(fstream &f,string &s)
+{
+	s="";
+	for(int c;(c=f.get())!=-1;)s.push_back((char)c);
+}
 template<class T>inline bool getmax( T&a, const T&b )
 {
 	return a < b ? ( a = b, true ) : false;

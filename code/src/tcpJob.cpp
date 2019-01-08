@@ -23,6 +23,7 @@ namespace Client
 				if( errorNumber != EINPROGRESS )
 				{
 					close( serverFd );
+					serverFd = -1;
 					nothingToDo = true;
 					return;
 				}
@@ -54,6 +55,7 @@ namespace Client
 				if( errorNumber != EISCONN )
 				{
 					close( serverFd );
+					serverFd = -1;
 					nothingToDo = true;
 					return;
 				}
@@ -76,6 +78,7 @@ namespace Client
 			if( error )
 			{
 				close( serverFd );
+				serverFd = -1;
 				nothingToDo = true;
 				return;
 			}
@@ -89,7 +92,10 @@ namespace Client
 
 			if( receive_string( serverFd, msg, error ) )
 			{
+				result = msg;
+
 				close( serverFd );
+				serverFd = -1;
 				nothingToDo = true;
 				return;
 			}
@@ -97,6 +103,7 @@ namespace Client
 			if( error )
 			{
 				close( serverFd );
+				serverFd = -1;
 				nothingToDo = true;
 				return;
 			}
@@ -105,9 +112,19 @@ namespace Client
 		}
 	}
 
-	TCPJob::TCPJob( const string &_command, const string &_host, const int _port, const int _timeout, const int _id )
-		:command( _command ), host( _host ), port( _port ), timeout( _timeout ), id( _id ), startClock( steady_clock::now( ) ), result( "timeout when connect to " + host )
+	TCPJob::TCPJob( const string &_command = "", const string &_host = "localhost", const int _port = 7122, const int _timeout, const int _id )
+		:nothingToDo( false ), isHandshaking( false ), isConnected( false ), isSent( false ), infoGiven( false ),
+		startClock( steady_clock::now( ) ), result( "timeout" ),
+		command( _command ), host( _host ), port( _port ), timeout( _timeout ), id( _id )
 	{
+	}
+
+	TCPJob::~TCPJob( )
+	{
+		if( serverFd >= 3 )
+		{
+			close( serverFd );
+		}
 	}
 
 	void TCPJob::TryTCP( string &info, bool &isTimeout )
@@ -117,7 +134,7 @@ namespace Client
 			_TryTCP( );
 		}
 
-		isTimeout = ( currentDelay( ) > timeout );
+		isTimeout = ( timeout != 0 and ( currentDelay( ) > timeout ) );
 
 		if( not infoGiven and ( nothingToDo or isTimeout ) )
 		{
@@ -125,14 +142,22 @@ namespace Client
 			infoGiven = true;
 		}
 
-		if( not nothingToDo and isTimeout and serverFd != -1 )
+		if( ( not nothingToDo ) and isTimeout and serverFd != -1 )
 		{
 			close( serverFd );
+			serverFd = -1;
 		}
 	}
 
 	int TCPJob::currentDelay( )
 	{
 		return static_cast<int>( duration_cast<microseconds>( steady_clock::now( ) - startClock ).count( ) / 1000 );
+	}
+
+	ostream& operator<< ( ostream &output, TCPJob &tcpJob )
+	{
+		output << "(" + tcpJob.command + "," + tcpJob.host + ":" + to_string( tcpJob.port ) + ")";
+
+		return output;
 	}
 }
