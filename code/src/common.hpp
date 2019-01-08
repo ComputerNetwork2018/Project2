@@ -12,6 +12,8 @@
 
 using namespace std;
 
+void ReadToEnd( fstream &f, string &s );
+
 template<class T>inline bool getmax( T&a, const T&b );
 
 template<class T>inline bool getmin( T&a, const T&b );

@@ -4,3 +4,7 @@ code/bin
 .*.swp
 *.out
 code/Discord Setup.exe
+code/friends.txt
+code/last_message.txt
+code/messages.txt
+code/usernames.txt
