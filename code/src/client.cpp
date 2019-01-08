@@ -993,7 +993,7 @@ namespace Client
 				if( fileID != "" )
 				{
 					command = "send_file " + sessionToken + " " + fileID + " " + buffer;
-					SendJobToSender( TCPJob( command, serverName, serverPort, 300000 ), 1 );
+					SendJobToSender( TCPJob( command, serverName, serverPort, 3000000 ), 1 );
 
 					RecvString( result, 1 );
 				}
@@ -1022,7 +1022,7 @@ namespace Client
 				if( fileID != "" )
 				{
 					command = "receive_file " + sessionToken + " " + fileID;
-					SendJobToSender( TCPJob( command, serverName, serverPort, 300000 ), 1 );
+					SendJobToSender( TCPJob( command, serverName, serverPort, 3000000 ), 1 );
 
 					RecvString( result, 1 );
 
