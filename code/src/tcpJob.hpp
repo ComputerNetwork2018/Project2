@@ -32,6 +32,7 @@ namespace Client
 
 	public:
 		TCPJob( const string &_command, const string &_host, const int _port, const int _timeout = 6000, const int _id = 0 );
+		~TCPJob( );
 
 		string command;
 		string host;

@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <iostream>
+#include <fstream>
 #include <sstream>
 #include <vector>
 #include <string>
@@ -167,8 +168,8 @@ namespace Client
 
 			if( not resultQueue[ selector ].empty( ) )
 			{
-				msg = resultQueue.front( );
-				resultQueue.pop( );
+				msg = resultQueue[ selector ].front( );
+				resultQueue[ selector ] .pop( );
 				pending = false;
 			}
 		}
@@ -186,7 +187,7 @@ namespace Client
 		struct stat buf;
 		if( stat( filename.c_str( ), &buf ) != -1 )
 		{
-			ifstream( filename, ios::in, ios::binary );
+			ifstream file ( filename, ios::in | ios::binary );
 
 			char charTemp = 0;
 			while( file.get( charTemp ) )
@@ -336,6 +337,7 @@ namespace Client
 
 		SendJobToSender( TCPJob( command, serverName, serverPort ) );
 
+		bool loginSuccess = true;
 		string result;
 		RecvString( result );
 
@@ -489,7 +491,7 @@ namespace Client
 		thread( chatManager ).detach( );
 		thread( fileHandler ).detach( );
 
-		term.Fill( Position( OPTION_HEIGHT, 0 ), Position( SCREEN_HEIGHT + 1, 300 ), Format( ), ' ' );
+		term.Fill( Position( EXIT_BAR_HEIGHT, 0 ), Position( SCREEN_HEIGHT + 1, 300 ), Format( ), ' ' );
 		term.MsgPos( "/a /r : add friend / remove friend", Position( SCREEN_HEIGHT - 2, TAB_COL ) );
 		term.MsgPos( "/f <filename1> <filename2> ... : file transfer", Position( SCREEN_HEIGHT - 1, TAB_COL ) );
 		term.MsgPos( "/q : quit.", Position( SCREEN_HEIGHT, TAB_COL ) );
@@ -508,7 +510,7 @@ namespace Client
 				msgQueue.push( msg );
 			}
 
-			term.Fill( Position( OPTION_HEIGHT, 0 ), Position( SCREEN_HEIGHT + 1, 300 ), Format( ), ' ' );
+			term.Fill( Position( EXIT_BAR_HEIGHT, 0 ), Position( SCREEN_HEIGHT + 1, 300 ), Format( ), ' ' );
 			term.MsgPos( "/a /r : add friend / remove friend", Position( SCREEN_HEIGHT - 2, TAB_COL ) );
 			term.MsgPos( "/f <filename1> <filename2> ... : file transfer", Position( SCREEN_HEIGHT - 1, TAB_COL ) );
 			term.MsgPos( "/q : quit.", Position( SCREEN_HEIGHT, TAB_COL ) );
@@ -517,13 +519,14 @@ namespace Client
 			getline( cin, msg );
 
 			stringstream msgStream( msg );
-			msgStream >> msg;
+			string temp;
+			msgStream >> temp;
 
-			if( msg[ 0 ] == '/' )
+			if( temp[ 0 ] == '/' )
 			{
-				if( msg.length( ) == 2 )
+				if( temp.length( ) == 2 )
 				{
-					switch( msg[ 1 ] )
+					switch( temp[ 1 ] )
 					{
 						case 'q':
 						{
@@ -532,9 +535,13 @@ namespace Client
 						}
 						case 'f':
 						{
+							lock_guard<mutex> fileLock( fileMutex );
 
-
-
+							while( not msgStream.eof( ) )
+							{
+								msgStream >> temp;
+								fileQueue.push( temp );
+							}
 
 							break;
 						}
@@ -838,7 +845,7 @@ namespace Client
 		if( resultList.size( ) < CACHE_HEIGHT )
 		{
 			temp.clear( );
-			getMsgs( rootMsgId, CACHE_HEIGHT - resultList.size( ), true, temp );
+			getMsgs( rootMsgId, CACHE_HEIGHT - static_cast<int>( resultList.size( ) ), true, temp );
 			for( auto i = temp.begin( ); i != temp.end( ); ++i )
 			{
 				resultList.push_back( *i );
@@ -930,7 +937,7 @@ namespace Client
 				term.Fill( Position( EXIT_BAR_HEIGHT - CACHE_HEIGHT, 1 ), Position( EXIT_BAR_HEIGHT - 2, 300 ), Format( ), ' ' );
 				for( size_t i = 0; i < msgCache.size( ); ++i )
 				{
-					term.MsgPos( ParseMsg( msgCache[ i ].second ), Position( EXIT_BAR_HEIGHT - 1 - msgCache.size( ) + i, 5 ) );
+					term.MsgPos( ParseMsg( msgCache[ i ].second ), Position( EXIT_BAR_HEIGHT - 1 - static_cast<int>( msgCache.size( ) - i ), 5 ) );
 				}
 
 				cout << "\e[s" << flush;
@@ -1002,7 +1009,7 @@ namespace Client
 				string result;
 				RecvString( result, 1 );
 
-				stringsream resultStream( result );
+				stringstream resultStream( result );
 
 				string fileID = "";
 				resultStream >> result; // get rid of "AC" msg.
@@ -1012,13 +1019,13 @@ namespace Client
 					resultStream >> fileID;
 					resultStream >> result; // get rid of the sender username.
 					resultStream >> result; // get rid of the buffer length.
-					resultStream >> filename;
+					filename = resultStream.str( ).substr( static_cast<size_t>( resultStream.tellg( ) ) + 1 );
 				}
 
 				if( fileID != "" )
 				{
 					command = "receive_file " + sessionToken + " " + fileID;
-					SendJobToSender( TCPJob( command, serverName, serverPort ), 1 );
+					SendJobToSender( TCPJob( command.substr( 3 ), serverName, serverPort ), 1 );
 
 					RecvString( result, 1 );
 
@@ -1027,6 +1034,8 @@ namespace Client
 					file.close( );
 				}
 			}
+
+			sleep( 1 );
 		}
 	}
 }

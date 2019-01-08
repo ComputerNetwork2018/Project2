@@ -23,6 +23,7 @@ namespace Client
 				if( errorNumber != EINPROGRESS )
 				{
 					close( serverFd );
+					serverFd = -1;
 					nothingToDo = true;
 					return;
 				}
@@ -54,6 +55,7 @@ namespace Client
 				if( errorNumber != EISCONN )
 				{
 					close( serverFd );
+					serverFd = -1;
 					nothingToDo = true;
 					return;
 				}
@@ -76,6 +78,7 @@ namespace Client
 			if( error )
 			{
 				close( serverFd );
+				serverFd = -1;
 				nothingToDo = true;
 				return;
 			}
@@ -92,6 +95,7 @@ namespace Client
 				result = msg;
 
 				close( serverFd );
+				serverFd = -1;
 				nothingToDo = true;
 				return;
 			}
@@ -99,6 +103,7 @@ namespace Client
 			if( error )
 			{
 				close( serverFd );
+				serverFd = -1;
 				nothingToDo = true;
 				return;
 			}
@@ -112,6 +117,14 @@ namespace Client
 		startClock( steady_clock::now( ) ), result( "timeout" ),
 		command( _command ), host( _host ), port( _port ), timeout( _timeout ), id( _id )
 	{
+	}
+
+	TCPJob::~TCPJob( )
+	{
+		if( serverFd >= 3 )
+		{
+			close( serverFd );
+		}
 	}
 
 	void TCPJob::TryTCP( string &info, bool &isTimeout )
@@ -132,6 +145,7 @@ namespace Client
 		if( ( not nothingToDo ) and isTimeout and serverFd != -1 )
 		{
 			close( serverFd );
+			serverFd = -1;
 		}
 	}
 
