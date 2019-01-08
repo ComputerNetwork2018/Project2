@@ -10,6 +10,7 @@
 #include <cstdint>
 
 #include <unistd.h>
+#include <sys/stat.h>
 
 #include "common.hpp"
 #include "tcpJob.hpp"
@@ -42,22 +43,28 @@ namespace Client
 	Terminal_Util term;
 
 	// sender thread & main-sender communication
-	void tcpSender( );
+	void tcpSender( const int selector );
 	bool exit;
 
-	mutex sendMutex;
-	queue<TCPJob> sendQueue;
+	mutex sendMutex[ 2 ];
+	queue<TCPJob> sendQueue[ 2 ];
 
-	mutex resultMutex;
-	queue<string> resultQueue;
+	mutex resultMutex[ 2 ];
+	queue<string> resultQueue[ 2 ];
 
-	// chat manager thread & main=chatMgr communication
+	// chat manager thread & main-chatMgr communication
 	void chatManager( );
 	bool chatting;
 	string partnerUsername;
 
 	mutex msgMutex;
 	queue<string> msgQueue;
+
+	// file sender thread & main-fileSender communication
+	void fileHandler( );
+
+	mutex fileMutex;
+	queue<string> fileQueue;
 
 	// login variables
 	bool login = false;
@@ -151,11 +158,46 @@ namespace Client
 		WaitEnter( Position( bottomColumn, 5 ) );
 	}
 
-	void SendJobToSender( const TCPJob &job )
+	void RecvString( string &msg, int selector = 0 )
 	{
-		lock_guard<mutex> sendLock( sendMutex );
+		bool pending = true;
+		while( pending )
+		{
+			lock_guard<mutex> resultLock( resultMutex[ selector ] );
 
-		sendQueue.push( job );
+			if( not resultQueue[ selector ].empty( ) )
+			{
+				msg = resultQueue.front( );
+				resultQueue.pop( );
+				pending = false;
+			}
+		}
+	}
+
+	void SendJobToSender( const TCPJob &job, int selector = 0 )
+	{
+		lock_guard<mutex> sendLock( sendMutex[ selector ] );
+
+		sendQueue[ selector ].push( job );
+	}
+
+	bool ReadFile( const std::string& filename, string &buffer )
+	{
+		struct stat buf;
+		if( stat( filename.c_str( ), &buf ) != -1 )
+		{
+			ifstream( filename, ios::in, ios::binary );
+
+			char charTemp = 0;
+			while( file.get( charTemp ) )
+			{
+				buffer.push_back( charTemp );
+			}
+			file.close( );
+
+			return true;
+		}
+		return false;
 	}
 
 	int ListMenu( const vector< string > &listToShow, const string &listType = "" )
@@ -294,49 +336,33 @@ namespace Client
 
 		SendJobToSender( TCPJob( command, serverName, serverPort ) );
 
-		bool loginPending = true;
-		bool loginSuccess = false;
+		string result;
+		RecvString( result );
 
-		while( loginPending )
+		if( result == "timeout" )
 		{
-			{
-				lock_guard<mutex> resultLock( resultMutex );
-
-				if( not resultQueue.empty( ) )
-				{
-					string &result = resultQueue.front( );
-
-					if( result == "timeout" )
-					{
-						loginSuccess = false;
-						term.MsgPos( " failed : connection timeout", Position( 5, TAB_COL + 13 ) );
-					}
-					else if( result.substr( 0, 2 ) == "WA" )
-					{
-						loginSuccess = false;
-						term.MsgPos( " failed : " + result.substr( 2 ), Position( 5, TAB_COL + 13 ) );
-					}
-					else if( result.substr( 0, 2 ) == "AC" )
-					{
-						loginSuccess = true;
-						sessionTokenTobe = result.substr( 3, TAB_COL + 11 );
-						term.MsgPos( " success!", Position( 5, TAB_COL + 13 ) );
-					}
-					else
-					{
-						loginSuccess = false;
-						term.MsgPos( " failed : unknown error [ " + result + " ]" + result.substr( 2 ), Position( 5, TAB_COL + 13 ) );
-					}
-
-					cout << term;
-
-					loginPending = false;
-					resultQueue.pop( );
-
-					WaitEnter( Position( 7, TAB_COL ) );
-				}
-			}
+			loginSuccess = false;
+			term.MsgPos( " failed : connection timeout", Position( 5, TAB_COL + 13 ) );
 		}
+		else if( result.substr( 0, 2 ) == "WA" )
+		{
+			loginSuccess = false;
+			term.MsgPos( " failed : " + result.substr( 2 ), Position( 5, TAB_COL + 13 ) );
+		}
+		else if( result.substr( 0, 2 ) == "AC" )
+		{
+			loginSuccess = true;
+			sessionTokenTobe = result.substr( 3, TAB_COL + 11 );
+			term.MsgPos( " success!", Position( 5, TAB_COL + 13 ) );
+		}
+		else
+		{
+			loginSuccess = false;
+			term.MsgPos( " failed : unknown error [ " + result + " ]" + result.substr( 2 ), Position( 5, TAB_COL + 13 ) );
+		}
+
+		cout << term;
+		WaitEnter( Position( 7, TAB_COL ) );
 
 		return loginSuccess;
 	}
@@ -378,42 +404,28 @@ namespace Client
 
 		SendJobToSender( TCPJob( command, serverName, serverPort ) );
 
-		bool registerPending = true;
-		while( registerPending )
+		string result;
+		RecvString( result );
+
+		if( result == "timeout" )
 		{
-			{
-				lock_guard< mutex > resultLock( resultMutex );
-
-				if( not resultQueue.empty( ) )
-				{
-					string &result = resultQueue.front( );
-
-					if( result == "timeout" )
-					{
-						term.MsgPos( " failed : connection timeout", Position( 5, TAB_COL + 13 ) );
-					}
-					else if( result.substr( 0, 2 ) == "WA" )
-					{
-						term.MsgPos( " failed : " + result.substr( 2 ), Position( 5, TAB_COL + 13 ) );
-					}
-					else if( result.substr( 0, 2 ) == "AC" )
-					{
-						term.MsgPos( " success!", Position( 5, TAB_COL + 13 ) );
-					}
-					else
-					{
-						term.MsgPos( " failed : unknown error [" + result + " ]" + result.substr( 2 ), Position( 5, TAB_COL + 13 ) );
-					}
-
-					cout << term;
-
-					registerPending = false;
-					resultQueue.pop( );
-
-					WaitEnter( Position( 7, TAB_COL ) );
-				}
-			}
+			term.MsgPos( " failed : connection timeout", Position( 5, TAB_COL + 13 ) );
 		}
+		else if( result.substr( 0, 2 ) == "WA" )
+		{
+			term.MsgPos( " failed : " + result.substr( 2 ), Position( 5, TAB_COL + 13 ) );
+		}
+		else if( result.substr( 0, 2 ) == "AC" )
+		{
+			term.MsgPos( " success!", Position( 5, TAB_COL + 13 ) );
+		}
+		else
+		{
+			term.MsgPos( " failed : unknown error [" + result + " ]" + result.substr( 2 ), Position( 5, TAB_COL + 13 ) );
+		}
+
+		cout << term;
+		WaitEnter( Position( 7, TAB_COL ) );
 	}
 
 	int Menu_Login( )
@@ -474,7 +486,8 @@ namespace Client
 
 		chatting = true;
 
-		thread chatMgr( chatManager );
+		thread( chatManager ).detach( );
+		thread( fileHandler ).detach( );
 
 		term.Fill( Position( OPTION_HEIGHT, 0 ), Position( SCREEN_HEIGHT + 1, 300 ), Format( ), ' ' );
 		term.MsgPos( "/a /r : add friend / remove friend", Position( SCREEN_HEIGHT - 2, TAB_COL ) );
@@ -487,8 +500,9 @@ namespace Client
 		getchar( );
 		getline( cin, msg );
 
-		while( msg != "/q" )
+		while( chatting )
 		{
+			if( msg != "" )
 			{
 				lock_guard<mutex> msgLock( msgMutex );
 				msgQueue.push( msg );
@@ -501,11 +515,47 @@ namespace Client
 			term.MsgPos( "> ", Position( EXIT_BAR_HEIGHT, TAB_COL ) );
 			cout << term;
 			getline( cin, msg );
+
+			stringstream msgStream( msg );
+			msgStream >> msg;
+
+			if( msg[ 0 ] == '/' )
+			{
+				if( msg.length( ) == 2 )
+				{
+					switch( msg[ 1 ] )
+					{
+						case 'q':
+						{
+							chatting = false;
+							break;
+						}
+						case 'f':
+						{
+
+
+
+
+							break;
+						}
+						case 'a':
+						{
+							break;
+						}
+						case 'r':
+						{
+							break;
+						}
+						default:
+						{
+							break;
+						}
+					}
+				}
+
+				msg = "";
+			}
 		}
-
-		chatting = false;
-
-		chatMgr.join( );
 	}
 
 	void ShowList( const string &listType = "" )
@@ -514,39 +564,26 @@ namespace Client
 
 		SendJobToSender( TCPJob( command, serverName, serverPort ) );
 
-		bool listPending = true;
+		string result;
+		RecvString( result );
+
+		stringstream resultStream( result );
 		vector< string > list( 0 );
 
-		while( listPending )
+		resultStream >> result; // get rid of the "AC"/"timeout" msg
+
+		if( result == "timeout" )
 		{
+			ConnectionTimeout( 14 );
+		}
+		else
+		{
+			resultStream >> result; // get rid of N.
+
+			while( not resultStream.eof( ) )
 			{
-				lock_guard<mutex> resultLock( resultMutex );
-
-				if( not resultQueue.empty( ) )
-				{
-					stringstream resultStream( resultQueue.front( ) );
-					string result;
-
-					resultStream >> result; // get rid of the "AC"/"timeout" msg
-
-					if( result == "timeout" )
-					{
-						ConnectionTimeout( 14 );
-					}
-					else
-					{
-						resultStream >> result; // get rid of N.
-
-						while( not resultStream.eof( ) )
-						{
-							resultStream >> result;
-							list.push_back( result );
-						}
-					}
-
-					resultQueue.pop( );
-					listPending = false;
-				}
+				resultStream >> result;
+				list.push_back( result );
 			}
 		}
 
@@ -624,7 +661,8 @@ namespace Client
 
 		exit = false;
 
-		thread tcpThread( tcpSender );
+		thread( tcpSender, 0 ).detach( );
+		thread( tcpSender, 1 ).detach( );
 
 		while( not exit )
 		{
@@ -665,15 +703,13 @@ namespace Client
 			}
 		}
 
-		tcpThread.join( );
-
 		term.Clear( );
 		cout << term;
 
 		return 0;
 	}
 
-	void tcpSender( )
+	void tcpSender( int selector )
 	{
 #ifdef DEBUG_SENDER
 		term.MsgPos( "sender: thread begin.", Position( 20, TAB_COL ) );
@@ -681,53 +717,13 @@ namespace Client
 #endif
 		while( not exit )
 		{
-			unique_lock<mutex> sendLock( sendMutex, defer_lock );
-			unique_lock<mutex> resultLock( resultMutex, defer_lock );
+			unique_lock<mutex> sendLock( sendMutex[ selector ], defer_lock );
+			unique_lock<mutex> resultLock( resultMutex[ selector ], defer_lock );
 			lock( sendLock, resultLock );
-/*
-			while( not sendList.empty( ) )
+
+			if( not sendQueue[ selector ].empty( ) )
 			{
-				for( auto it = sendList.begin( ); it != sendList.end( ); ++it )
-				{
-					auto &job = *it;
-					string result = "";
-					bool isTimeout;
-
-#ifdef DEBUG_SENDER
-					term.MsgPos( "sender: job.TryTCP( ) : \"" + job.command + "\" # " + to_string( job.id ), Position( 20, 5 ) );
-					clog << term << job;
-#endif
-
-					job.TryTCP( result, isTimeout );
-
-					if( result != "" )
-					{
-#ifdef DEBUG_SENDER
-						term.MsgPos( "sender: result = \"" + result + "\"", Position( 24, 5 ) );
-						clog << term;
-#endif
-						resultQueue.push( result );
-
-						sendList.erase( it );
-						break;
-					}
-
-					if( isTimeout )
-					{
-#ifdef DEBUG_SENDER
-						term.MsgPos( "sender: timeout # " + to_string( job.id ), Position( 21, 5 ) );
-						clog << term;
-#endif
-
-						sendList.erase( it );
-						break;
-					}
-				}
-			}
-*/
-			if( not sendQueue.empty( ) )
-			{
-				auto &job = sendQueue.front( );
+				auto &job = sendQueue[ selector ].front( );
 				string result = "";
 				bool isTimeout;
 #ifdef DEBUG_SENDER
@@ -742,9 +738,9 @@ namespace Client
 					term.MsgPos( "sender: result = \"" + result + "\"", Position( 34, TAB_COL ) );
 					clog << term;
 #endif
-					resultQueue.push( result );
+					resultQueue[ selector ].push( result );
 
-					sendQueue.pop( );
+					sendQueue[ selector ].pop( );
 				}
 				else if( isTimeout )
 				{
@@ -752,7 +748,7 @@ namespace Client
 					term.MsgPos( "sender: timeout # " + to_string( job.id ), Position( 31, TAB_COL ) );
 					clog << term;
 #endif
-					sendQueue.pop( );
+					sendQueue[ selector ].pop( );
 				}
 			}
 
@@ -786,30 +782,16 @@ namespace Client
 		string command = "get_message " + sessionToken + " " + msgId;
 		SendJobToSender( TCPJob( command, serverName, serverPort ) );
 
-		bool msgPending = true;
-		while( msgPending )
+		string result;
+		RecvString( result );
+
+		if( result == "timeout" )
 		{
-			{
-				lock_guard<mutex> resultLock( resultMutex );
-
-				if( not resultQueue.empty( ) )
-				{
-					string &result = resultQueue.front( );
-
-					if( result == "timeout" )
-					{
-						msg = "";
-						ConnectionTimeout( SCREEN_HEIGHT );
-					}
-					else
-					{
-						msg = result.substr( 3 );
-					}
-
-					resultQueue.pop( );
-					msgPending = false;
-				}
-			}
+			msg = "";
+		}
+		else
+		{
+			msg = result.substr( 3 );
 		}
 	}
 
@@ -818,38 +800,25 @@ namespace Client
 		string command = ( newer ? "next_messages " : "prev_messages " ) + sessionToken + " " + rootMsgId + " " + to_string( count );
 		SendJobToSender( TCPJob( command, serverName, serverPort ) );
 
-		bool responsePending = true;
-		while( responsePending )
+		string result;
+		RecvString( result );
+
+		stringstream resultStream( result );
+
+		resultStream >> result;
+
+		if( result == "timeout" )
 		{
+			resultList.clear( );
+		}
+		else
+		{
+			resultStream >> result; // get rid of N.
+
+			while( not resultStream.eof( ) )
 			{
-				lock_guard<mutex> resultLock( resultMutex );
-
-				if( not resultQueue.empty( ) )
-				{
-					stringstream resultStream( resultQueue.front( ) );
-					string result; // get rid of "AC"/"timeout" msg.
-
-					resultStream >> result;
-
-					if( result == "timeout" )
-					{
-						resultList.clear( );
-						ConnectionTimeout( SCREEN_HEIGHT );
-					}
-					else
-					{
-						resultStream >> result; // get rid of N.
-
-						while( not resultStream.eof( ) )
-						{
-							resultStream >> result;
-							resultList.push_back( result );
-						}
-					}
-
-					resultQueue.pop( );
-					responsePending = false;
-				}
+				resultStream >> result;
+				resultList.push_back( result );
 			}
 		}
 	}
@@ -906,33 +875,20 @@ namespace Client
 
 			SendJobToSender( TCPJob( command, serverName, serverPort ) );
 
-			bool responsePending = true;
-			while( responsePending )
+			string result;
+			RecvString( result );
+
+			if( result == "timeout" )
 			{
-				{
-					lock_guard<mutex> resultLock( msgMutex );
-
-					if( not resultQueue.empty( ) )
-					{
-						string &result = resultQueue.front( );
-
-						if( result == "timeout" )
-						{
-							ConnectionTimeout( SCREEN_HEIGHT );
-						}
-						else if( result == "AC" )
-						{
-							rootMsgId = "";
-						}
-						else
-						{
-							rootMsgId = result.substr( 3, TAB_COL + 11 );
-						}
-
-						resultQueue.pop( );
-						responsePending = false;
-					}
-				}
+				// empty
+			}
+			else if( result == "AC" )
+			{
+				rootMsgId = "";
+			}
+			else
+			{
+				rootMsgId = result.substr( 3, TAB_COL + 11 );
 			}
 
 			if( rootMsgId != "" )
@@ -993,6 +949,84 @@ namespace Client
 			}
 
 			sleep( 1 );
+		}
+	}
+
+	void fileHandler( )
+	{
+		while( chatting )
+		{
+			string filename = "";
+			string buffer = "";
+			bool fileExists;
+
+			{
+				lock_guard<mutex> fileLock( fileMutex );
+
+				if( not fileQueue.empty( ) )
+				{
+					filename = fileQueue.front( );
+					fileQueue.pop( );
+				}
+			}
+
+			fileExists = ReadFile( filename, buffer );
+
+			if( fileExists )
+			{
+				string command = "file_request " + sessionToken + " " + partnerUsername + " " + to_string( buffer.length( ) ) + " " + filename;
+				SendJobToSender( TCPJob( command, serverName, serverPort ), 1 );
+
+				string result;
+				RecvString( result, 1 );
+
+				string fileID = "";
+				if( result.substr( 0, 2 ) == "AC" )
+				{
+					fileID = result.substr( 3, 16 );
+				}
+
+				if( fileID != "" )
+				{
+					command = "send_file " + sessionToken + " " + fileID + " " + buffer;
+					SendJobToSender( TCPJob( command, serverName, serverPort ), 1 );
+
+					RecvString( result, 1 );
+				}
+			}
+			// send file above, receive file below
+			{
+				string command = "check_file_request " + sessionToken;
+				SendJobToSender( TCPJob( command, serverName, serverPort ), 1 );
+
+				string result;
+				RecvString( result, 1 );
+
+				stringsream resultStream( result );
+
+				string fileID = "";
+				resultStream >> result; // get rid of "AC" msg.
+
+				if( not resultStream.eof( ) )
+				{
+					resultStream >> fileID;
+					resultStream >> result; // get rid of the sender username.
+					resultStream >> result; // get rid of the buffer length.
+					resultStream >> filename;
+				}
+
+				if( fileID != "" )
+				{
+					command = "receive_file " + sessionToken + " " + fileID;
+					SendJobToSender( TCPJob( command, serverName, serverPort ), 1 );
+
+					RecvString( result, 1 );
+
+					ofstream file( filename, ios::out | ios::trunc | ios::binary );
+					file.write( result.c_str( ), result.length( ) );
+					file.close( );
+				}
+			}
 		}
 	}
 }
