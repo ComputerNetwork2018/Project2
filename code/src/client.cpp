@@ -21,9 +21,10 @@
 
 // #define DEBUG_MAIN
 // #define DEBUG_LOGIN
-// #define DEBUG_SENDER
+#define DEBUG_SENDER
 // #define DEBUG_CHAT
 // #define DEBUG_LIST_MENU
+#define DEBUG_FILE
 
 #endif
 
@@ -491,16 +492,8 @@ namespace Client
 		thread( chatManager ).detach( );
 		thread( fileHandler ).detach( );
 
-		term.Fill( Position( EXIT_BAR_HEIGHT, 0 ), Position( SCREEN_HEIGHT + 1, 300 ), Format( ), ' ' );
-		term.MsgPos( "/a /r : add friend / remove friend", Position( SCREEN_HEIGHT - 2, TAB_COL ) );
-		term.MsgPos( "/f <filename1> <filename2> ... : file transfer", Position( SCREEN_HEIGHT - 1, TAB_COL ) );
-		term.MsgPos( "/q : quit.", Position( SCREEN_HEIGHT, TAB_COL ) );
-		term.MsgPos( "> ", Position( EXIT_BAR_HEIGHT, TAB_COL ) );
-		cout << term;
-
-		string msg;
+		string msg = "";
 		getchar( );
-		getline( cin, msg );
 
 		while( chatting )
 		{
@@ -512,7 +505,7 @@ namespace Client
 
 			term.Fill( Position( EXIT_BAR_HEIGHT, 0 ), Position( SCREEN_HEIGHT + 1, 300 ), Format( ), ' ' );
 			term.MsgPos( "/a /r : add friend / remove friend", Position( SCREEN_HEIGHT - 2, TAB_COL ) );
-			term.MsgPos( "/f <filename1> <filename2> ... : file transfer", Position( SCREEN_HEIGHT - 1, TAB_COL ) );
+			term.MsgPos( "/f <filename> : file transfer", Position( SCREEN_HEIGHT - 1, TAB_COL ) );
 			term.MsgPos( "/q : quit.", Position( SCREEN_HEIGHT, TAB_COL ) );
 			term.MsgPos( "> ", Position( EXIT_BAR_HEIGHT, TAB_COL ) );
 			cout << term;
@@ -521,7 +514,9 @@ namespace Client
 			stringstream msgStream( msg );
 			string temp;
 			msgStream >> temp;
-
+#ifdef DEBUG_FILE
+			clog << "msg = " << msg << " temp = " << temp << endl;
+#endif
 			if( temp[ 0 ] == '/' )
 			{
 				if( temp.length( ) == 2 )
@@ -537,12 +532,11 @@ namespace Client
 						{
 							lock_guard<mutex> fileLock( fileMutex );
 
-							while( not msgStream.eof( ) )
-							{
-								msgStream >> temp;
-								fileQueue.push( temp );
-							}
-
+							temp = msgStream.str( ).substr( static_cast<size_t>( msgStream.tellg( ) ) + 1 );
+							fileQueue.push( temp );
+#ifdef DEBUG_FILE
+							clog << "pushed filename " << temp << endl;
+#endif
 							break;
 						}
 						case 'a':
@@ -974,6 +968,9 @@ namespace Client
 				{
 					filename = fileQueue.front( );
 					fileQueue.pop( );
+#ifdef DEBUG_FILE
+					clog << "file: get filename: " << filename << endl;
+#endif
 				}
 			}
 
@@ -1025,13 +1022,13 @@ namespace Client
 				if( fileID != "" )
 				{
 					command = "receive_file " + sessionToken + " " + fileID;
-					SendJobToSender( TCPJob( command.substr( 3 ), serverName, serverPort ), 1 );
+					SendJobToSender( TCPJob( command, serverName, serverPort ), 1 );
 
 					RecvString( result, 1 );
 
 					ofstream file( filename, ios::out | ios::trunc | ios::binary );
-					file.write( result.c_str( ), result.length( ) );
-					file.close( );
+					file.write( result.substr( 3 ).c_str( ), result.length( ) - 3 );
+					file.close( );	
 				}
 			}
 
