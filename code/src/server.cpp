@@ -223,6 +223,7 @@ namespace DataBase
 				const auto iu = messages.find( next_id );
 				assert( iu != messages.end( ) );
 				msg = iu->second;
+				ans.push_back(next_id);
 			}
 			response = to_string( ans.size( ) );
 			for( const string &id : ans )response += " " + id;
@@ -243,6 +244,7 @@ namespace DataBase
 				const auto iu = messages.find( prev_id );
 				assert( iu != messages.end( ) );
 				msg = iu->second;
+				ans.push_back(prev_id);
 			}
 			response = to_string( ans.size( ) );
 			for( const string &id : ans )response += " " + id;
